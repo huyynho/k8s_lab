@@ -3,2122 +3,1031 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>K8s Foundation — Khóa học Kubernetes Thực Chiến</title>
+  <title>K8S Lab – HuyLN</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&family=Sora:wght@300;400;600;700;800&display=swap" rel="stylesheet" />
-  <style>
-    :root {
-      --bg: #f5f7ff;
-      --bg2: #eef1fb;
-      --surface: #ffffff;
-      --surface2: #f0f3ff;
-      --border: #dde2f0;
-      --accent: #2563eb;
-      --accent2: #7c3aed;
-      --accent3: #059669;
-      --text: #1e2a45;
-      --muted: #64748b;
-      --danger: #dc2626;
-      --warn: #d97706;
-      --mono: 'Space Mono', monospace;
-      --sans: 'Sora', sans-serif;
-    }
-
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
-    html { scroll-behavior: smooth; }
-
-    body {
-      font-family: var(--sans);
-      background: var(--bg);
-      color: var(--text);
-      overflow-x: hidden;
-      line-height: 1.6;
-    }
-
-    /* ── NOISE OVERLAY ── */
-    body::before {
-      content: '';
-      position: fixed; inset: 0;
-      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
-      pointer-events: none; z-index: 9999; opacity: 0.4;
-    }
-
-    /* ── HERO ── */
-    .hero {
-      position: relative;
-      min-height: 100vh;
-      display: flex; align-items: center; justify-content: center;
-      overflow: hidden;
-      padding: 2rem;
-    }
-
-    .hero-bg {
-      position: absolute; inset: 0;
-      background: radial-gradient(ellipse 80% 60% at 50% -10%, rgba(37,99,235,0.1) 0%, transparent 60%),
-                  radial-gradient(ellipse 50% 40% at 90% 80%, rgba(124,58,237,0.08) 0%, transparent 50%),
-                  radial-gradient(ellipse 40% 30% at 10% 90%, rgba(5,150,105,0.06) 0%, transparent 50%);
-    }
-
-    .grid-lines {
-      position: absolute; inset: 0;
-      background-image:
-        linear-gradient(rgba(37,99,235,0.06) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(37,99,235,0.06) 1px, transparent 1px);
-      background-size: 60px 60px;
-      mask-image: radial-gradient(ellipse 70% 70% at center, black 0%, transparent 80%);
-    }
-
-    .hero-content {
-      position: relative; z-index: 1;
-      text-align: center;
-      max-width: 860px;
-    }
-
-    .badge {
-      display: inline-flex; align-items: center; gap: 0.5rem;
-      background: rgba(37,99,235,0.08);
-      border: 1px solid rgba(37,99,235,0.2);
-      border-radius: 999px;
-      padding: 0.35rem 1rem;
-      font-family: var(--mono);
-      font-size: 0.72rem;
-      color: var(--accent);
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
-      margin-bottom: 2rem;
-      animation: fadeUp 0.6s ease both;
-    }
-
-    .badge-dot {
-      width: 6px; height: 6px;
-      background: var(--accent3);
-      border-radius: 50%;
-      box-shadow: 0 0 6px var(--accent3);
-      animation: pulse 2s ease infinite;
-    }
-
-    @keyframes pulse {
-      0%, 100% { opacity: 1; transform: scale(1); }
-      50% { opacity: 0.5; transform: scale(0.8); }
-    }
-
-    .hero h1 {
-      font-size: clamp(2.8rem, 7vw, 5.5rem);
-      font-weight: 800;
-      line-height: 1.05;
-      letter-spacing: -0.03em;
-      margin-bottom: 1.5rem;
-      animation: fadeUp 0.7s 0.1s ease both;
-    }
-
-    .hero h1 span.k8s {
-      background: linear-gradient(135deg, var(--accent), var(--accent2));
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      background-clip: text;
-    }
-
-    .hero p {
-      font-size: 1.2rem;
-      color: var(--muted);
-      max-width: 600px;
-      margin: 0 auto 2.5rem;
-      font-weight: 300;
-      animation: fadeUp 0.8s 0.2s ease both;
-    }
-
-    .hero-stats {
-      display: flex; gap: 2rem; justify-content: center; flex-wrap: wrap;
-      margin-bottom: 3rem;
-      animation: fadeUp 0.9s 0.3s ease both;
-    }
-
-    .stat {
-      text-align: center;
-    }
-
-    .stat-num {
-      font-family: var(--mono);
-      font-size: 2rem;
-      font-weight: 700;
-      color: var(--accent);
-    }
-
-    .stat-label {
-      font-size: 0.8rem;
-      color: var(--muted);
-      text-transform: uppercase;
-      letter-spacing: 0.06em;
-    }
-
-    .cta-group {
-      display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap;
-      animation: fadeUp 1s 0.4s ease both;
-    }
-
-    .btn {
-      display: inline-flex; align-items: center; gap: 0.5rem;
-      padding: 0.8rem 2rem;
-      border-radius: 8px;
-      font-family: var(--mono);
-      font-size: 0.85rem;
-      font-weight: 700;
-      cursor: pointer;
-      text-decoration: none;
-      transition: all 0.2s;
-      letter-spacing: 0.04em;
-    }
-
-    .btn-primary {
-      background: var(--accent);
-      color: #ffffff;
-      border: none;
-    }
-
-    .btn-primary:hover {
-      background: #1d4ed8;
-      transform: translateY(-2px);
-      box-shadow: 0 8px 24px rgba(37,99,235,0.3);
-    }
-
-    .btn-ghost {
-      background: transparent;
-      color: var(--text);
-      border: 1px solid var(--border);
-    }
-
-    .btn-ghost:hover {
-      border-color: var(--accent);
-      color: var(--accent);
-      transform: translateY(-2px);
-    }
-
-    @keyframes fadeUp {
-      from { opacity: 0; transform: translateY(20px); }
-      to { opacity: 1; transform: translateY(0); }
-    }
-
-    /* ── NAV ── */
-    nav {
-      position: fixed; top: 0; left: 0; right: 0;
-      z-index: 100;
-      padding: 1rem 2rem;
-      display: flex; align-items: center; justify-content: space-between;
-      background: rgba(245,247,255,0.92);
-      backdrop-filter: blur(20px);
-      border-bottom: 1px solid rgba(221,226,240,0.8);
-      transition: all 0.3s;
-    }
-
-    .nav-logo {
-      font-family: var(--mono);
-      font-size: 1rem;
-      font-weight: 700;
-      color: var(--accent);
-      text-decoration: none;
-      display: flex; align-items: center; gap: 0.5rem;
-    }
-
-    .nav-logo svg { width: 24px; height: 24px; }
-
-    .nav-links {
-      display: flex; gap: 2rem; list-style: none;
-    }
-
-    .nav-links a {
-      color: var(--muted);
-      text-decoration: none;
-      font-size: 0.85rem;
-      transition: color 0.2s;
-    }
-
-    .nav-links a:hover { color: var(--text); }
-
-    /* ── SECTION WRAPPER ── */
-    section {
-      padding: 6rem 2rem;
-      max-width: 1200px;
-      margin: 0 auto;
-    }
-
-    .section-label {
-      font-family: var(--mono);
-      font-size: 0.72rem;
-      color: var(--accent);
-      text-transform: uppercase;
-      letter-spacing: 0.12em;
-      margin-bottom: 0.75rem;
-    }
-
-    .section-title {
-      font-size: clamp(1.8rem, 4vw, 2.8rem);
-      font-weight: 800;
-      letter-spacing: -0.025em;
-      margin-bottom: 1rem;
-      line-height: 1.1;
-    }
-
-    .section-sub {
-      color: var(--muted);
-      font-size: 1.05rem;
-      max-width: 600px;
-      font-weight: 300;
-    }
-
-    /* ── COURSE OVERVIEW CARDS ── */
-    .course-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-      gap: 1.5rem;
-      margin-top: 3rem;
-    }
-
-    .course-card {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 16px;
-      padding: 1.75rem;
-      position: relative;
-      overflow: hidden;
-      cursor: pointer;
-      transition: all 0.3s;
-      text-decoration: none;
-      display: block;
-      color: inherit;
-    }
-
-    .course-card::before {
-      content: '';
-      position: absolute; inset: 0;
-      background: linear-gradient(135deg, var(--card-color, var(--accent)) 0%, transparent 60%);
-      opacity: 0;
-      transition: opacity 0.3s;
-    }
-
-    .course-card:hover {
-      transform: translateY(-4px);
-      border-color: var(--card-color, var(--accent));
-      box-shadow: 0 16px 40px rgba(37,99,235,0.12), 0 0 0 1px var(--card-color, var(--accent)) inset;
-    }
-
-    .course-card:hover::before { opacity: 0.05; }
-
-    .card-num {
-      font-family: var(--mono);
-      font-size: 0.72rem;
-      color: var(--card-color, var(--accent));
-      text-transform: uppercase;
-      letter-spacing: 0.1em;
-      margin-bottom: 1rem;
-    }
-
-    .card-icon {
-      width: 44px; height: 44px;
-      background: rgba(37,99,235,0.08);
-      border-radius: 10px;
-      display: flex; align-items: center; justify-content: center;
-      margin-bottom: 1.25rem;
-      font-size: 1.4rem;
-    }
-
-    .card-title {
-      font-size: 1.15rem;
-      font-weight: 700;
-      margin-bottom: 0.75rem;
-      line-height: 1.3;
-    }
-
-    .card-desc {
-      font-size: 0.875rem;
-      color: var(--muted);
-      line-height: 1.6;
-      margin-bottom: 1.25rem;
-    }
-
-    .card-tags {
-      display: flex; flex-wrap: wrap; gap: 0.4rem;
-    }
-
-    .tag {
-      background: rgba(37,99,235,0.07);
-      border: 1px solid rgba(37,99,235,0.15);
-      border-radius: 4px;
-      padding: 0.2rem 0.55rem;
-      font-family: var(--mono);
-      font-size: 0.68rem;
-      color: var(--accent);
-    }
-
-    .card-arrow {
-      position: absolute; top: 1.75rem; right: 1.75rem;
-      color: var(--muted);
-      transition: all 0.2s;
-      font-size: 1rem;
-    }
-
-    .course-card:hover .card-arrow {
-      color: var(--card-color, var(--accent));
-      transform: translate(3px, -3px);
-    }
-
-    /* ── LESSON DETAIL AREA ── */
-    .lesson-area {
-      background: var(--bg2);
-      border-top: 1px solid var(--border);
-      border-bottom: 1px solid var(--border);
-    }
-
-    .lesson-area section {
-      padding: 4rem 2rem;
-    }
-
-    .lesson-nav {
-      display: flex; gap: 0.5rem;
-      margin-bottom: 3rem;
-      overflow-x: auto;
-      padding-bottom: 0.5rem;
-    }
-
-    .lesson-tab {
-      display: flex; align-items: center; gap: 0.5rem;
-      padding: 0.6rem 1.2rem;
-      border-radius: 8px;
-      font-size: 0.82rem;
-      cursor: pointer;
-      white-space: nowrap;
-      transition: all 0.2s;
-      background: transparent;
-      border: 1px solid var(--border);
-      color: var(--muted);
-      font-family: var(--sans);
-    }
-
-    .lesson-tab.active, .lesson-tab:hover {
-      background: rgba(37,99,235,0.06);
-      color: var(--text);
-      border-color: var(--accent);
-    }
-
-    .lesson-tab.active {
-      color: var(--accent);
-    }
-
-    .lesson-panel { display: none; }
-    .lesson-panel.active { display: block; }
-
-    /* ── CONTENT BLOCKS ── */
-    .content-block {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 16px;
-      padding: 2rem;
-      margin-bottom: 1.5rem;
-    }
-
-    .content-block h3 {
-      font-size: 1.25rem;
-      font-weight: 700;
-      margin-bottom: 1rem;
-      display: flex; align-items: center; gap: 0.75rem;
-    }
-
-    .content-block h3 .icon {
-      width: 32px; height: 32px;
-      background: rgba(0,212,255,0.1);
-      border-radius: 8px;
-      display: flex; align-items: center; justify-content: center;
-      font-size: 1rem;
-      flex-shrink: 0;
-    }
-
-    .content-block p {
-      color: var(--muted);
-      margin-bottom: 1rem;
-      line-height: 1.7;
-    }
-
-    .content-block ul, .content-block ol {
-      padding-left: 1.5rem;
-      color: var(--muted);
-    }
-
-    .content-block li {
-      margin-bottom: 0.4rem;
-      line-height: 1.7;
-    }
-
-    /* ── CODE BLOCK ── */
-    .code-block {
-      background: #080d18;
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      overflow: hidden;
-      margin: 1rem 0;
-    }
-
-    .code-header {
-      display: flex; align-items: center; justify-content: space-between;
-      padding: 0.6rem 1rem;
-      background: rgba(255,255,255,0.03);
-      border-bottom: 1px solid var(--border);
-    }
-
-    .code-lang {
-      font-family: var(--mono);
-      font-size: 0.7rem;
-      color: var(--muted);
-      text-transform: uppercase;
-      letter-spacing: 0.1em;
-    }
-
-    .copy-btn {
-      background: transparent;
-      border: 1px solid var(--border);
-      border-radius: 4px;
-      color: var(--muted);
-      font-family: var(--mono);
-      font-size: 0.68rem;
-      padding: 0.2rem 0.6rem;
-      cursor: pointer;
-      transition: all 0.2s;
-    }
-
-    .copy-btn:hover {
-      border-color: var(--accent);
-      color: var(--accent);
-    }
-
-    .copy-btn.copied {
-      border-color: var(--accent3);
-      color: var(--accent3);
-    }
-
-    .code-body {
-      padding: 1.25rem;
-      overflow-x: auto;
-    }
-
-    .code-body pre {
-      font-family: var(--mono);
-      font-size: 0.82rem;
-      line-height: 1.7;
-      color: #c9d7f1;
-      white-space: pre;
-    }
-
-    .code-body .cmd { color: var(--accent); }
-    .code-body .kw { color: var(--accent2); }
-    .code-body .str { color: var(--accent3); }
-    .code-body .cm { color: #4a5a7a; font-style: italic; }
-
-    /* ── COMPONENT DIAGRAM ── */
-    .arch-diagram {
-      background: #080d18;
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      padding: 2rem;
-      margin: 1.5rem 0;
-      overflow-x: auto;
-    }
-
-    .arch-diagram pre {
-      font-family: var(--mono);
-      font-size: 0.8rem;
-      color: #7b91be;
-      line-height: 1.6;
-      white-space: pre;
-    }
-
-    .arch-diagram .hl { color: var(--accent); }
-    .arch-diagram .hl2 { color: var(--accent2); }
-    .arch-diagram .hl3 { color: var(--accent3); }
-
-    /* ── INFO BOX ── */
-    .info-box {
-      border-radius: 12px;
-      padding: 1.25rem 1.5rem;
-      margin: 1rem 0;
-      display: flex; gap: 1rem; align-items: flex-start;
-      font-size: 0.9rem;
-    }
-
-    .info-box.tip {
-      background: rgba(0,255,136,0.06);
-      border: 1px solid rgba(0,255,136,0.2);
-      color: #a0f0c8;
-    }
-
-    .info-box.warn {
-      background: rgba(255,209,102,0.07);
-      border: 1px solid rgba(255,209,102,0.25);
-      color: #f7d980;
-    }
-
-    .info-box.info {
-      background: rgba(0,212,255,0.06);
-      border: 1px solid rgba(0,212,255,0.2);
-      color: #80d9f0;
-    }
-
-    .info-box .icon { font-size: 1.1rem; flex-shrink: 0; margin-top: 0.1rem; }
-
-    /* ── COMPONENT CARDS ── */
-    .component-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-      gap: 1rem;
-      margin: 1.5rem 0;
-    }
-
-    .component-card {
-      background: rgba(255,255,255,0.03);
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      padding: 1.25rem;
-      transition: all 0.2s;
-    }
-
-    .component-card:hover {
-      border-color: var(--cc-color, var(--accent));
-      background: rgba(255,255,255,0.05);
-    }
-
-    .cc-badge {
-      font-family: var(--mono);
-      font-size: 0.68rem;
-      color: var(--cc-color, var(--accent));
-      background: rgba(0,212,255,0.08);
-      border-radius: 4px;
-      padding: 0.15rem 0.5rem;
-      display: inline-block;
-      margin-bottom: 0.75rem;
-    }
-
-    .cc-name {
-      font-family: var(--mono);
-      font-size: 0.9rem;
-      font-weight: 700;
-      color: var(--text);
-      margin-bottom: 0.5rem;
-    }
-
-    .cc-desc {
-      font-size: 0.82rem;
-      color: var(--muted);
-      line-height: 1.5;
-    }
-
-    /* ── QUIZ SECTION ── */
-    .quiz-block {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 16px;
-      padding: 2rem;
-      margin-bottom: 1.5rem;
-    }
-
-    .quiz-header {
-      display: flex; align-items: center; justify-content: space-between;
-      margin-bottom: 1.5rem;
-    }
-
-    .quiz-title {
-      font-size: 1.1rem;
-      font-weight: 700;
-    }
-
-    .quiz-progress {
-      font-family: var(--mono);
-      font-size: 0.75rem;
-      color: var(--muted);
-    }
-
-    .question-block {
-      margin-bottom: 2rem;
-    }
-
-    .question-text {
-      font-size: 0.95rem;
-      font-weight: 600;
-      margin-bottom: 1rem;
-      line-height: 1.5;
-    }
-
-    .question-num {
-      font-family: var(--mono);
-      font-size: 0.7rem;
-      color: var(--accent);
-      margin-bottom: 0.5rem;
-    }
-
-    .options { display: flex; flex-direction: column; gap: 0.5rem; }
-
-    .option {
-      display: flex; align-items: flex-start; gap: 0.75rem;
-      padding: 0.8rem 1rem;
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      cursor: pointer;
-      transition: all 0.2s;
-      font-size: 0.9rem;
-      background: transparent;
-      color: var(--text);
-      text-align: left;
-      width: 100%;
-    }
-
-    .option:hover:not(.revealed) {
-      border-color: var(--accent2);
-      background: rgba(123,97,255,0.06);
-    }
-
-    .option.correct {
-      border-color: var(--accent3);
-      background: rgba(0,255,136,0.07);
-      color: var(--accent3);
-    }
-
-    .option.wrong {
-      border-color: var(--danger);
-      background: rgba(255,77,109,0.07);
-      color: var(--danger);
-    }
-
-    .option-letter {
-      font-family: var(--mono);
-      font-size: 0.75rem;
-      font-weight: 700;
-      color: var(--muted);
-      flex-shrink: 0;
-      min-width: 18px;
-    }
-
-    .option.correct .option-letter { color: var(--accent3); }
-    .option.wrong .option-letter { color: var(--danger); }
-
-    .explanation {
-      margin-top: 0.75rem;
-      padding: 0.8rem 1rem;
-      background: rgba(0,212,255,0.05);
-      border-left: 3px solid var(--accent);
-      border-radius: 0 8px 8px 0;
-      font-size: 0.85rem;
-      color: #80d9f0;
-      display: none;
-    }
-
-    .explanation.show { display: block; }
-
-    /* ── STEP-BY-STEP LAB ── */
-    .lab-steps {
-      counter-reset: step;
-      display: flex;
-      flex-direction: column;
-      gap: 0;
-    }
-
-    .lab-step {
-      display: grid;
-      grid-template-columns: 52px 1fr;
-      gap: 0;
-      position: relative;
-    }
-
-    .lab-step:not(:last-child) .step-line {
-      position: absolute;
-      left: 25px;
-      top: 52px;
-      bottom: 0;
-      width: 2px;
-      background: linear-gradient(to bottom, var(--border), transparent);
-    }
-
-    .step-num {
-      counter-increment: step;
-      width: 36px; height: 36px;
-      background: var(--surface2);
-      border: 2px solid var(--border);
-      border-radius: 50%;
-      display: flex; align-items: center; justify-content: center;
-      font-family: var(--mono);
-      font-size: 0.75rem;
-      font-weight: 700;
-      color: var(--accent);
-      flex-shrink: 0;
-      margin-top: 0.25rem;
-      z-index: 1;
-    }
-
-    .step-content {
-      padding: 0 0 2rem 1.5rem;
-    }
-
-    .step-content h4 {
-      font-size: 1rem;
-      font-weight: 700;
-      margin-bottom: 0.5rem;
-    }
-
-    .step-content p {
-      color: var(--muted);
-      font-size: 0.875rem;
-      margin-bottom: 0.75rem;
-      line-height: 1.6;
-    }
-
-    /* ── TABLE ── */
-    .k8s-table {
-      width: 100%;
-      border-collapse: collapse;
-      margin: 1rem 0;
-      font-size: 0.875rem;
-    }
-
-    .k8s-table th {
-      background: rgba(0,212,255,0.06);
-      color: var(--accent);
-      font-family: var(--mono);
-      font-size: 0.72rem;
-      text-transform: uppercase;
-      letter-spacing: 0.08em;
-      padding: 0.75rem 1rem;
-      text-align: left;
-      border-bottom: 1px solid var(--border);
-    }
-
-    .k8s-table td {
-      padding: 0.75rem 1rem;
-      border-bottom: 1px solid rgba(30,45,71,0.5);
-      color: var(--muted);
-      vertical-align: top;
-    }
-
-    .k8s-table td:first-child {
-      font-family: var(--mono);
-      font-size: 0.82rem;
-      color: var(--text);
-    }
-
-    .k8s-table tr:hover td {
-      background: rgba(255,255,255,0.02);
-    }
-
-    /* ── FOOTER ── */
-    footer {
-      background: var(--bg2);
-      border-top: 1px solid var(--border);
-      padding: 3rem 2rem;
-      text-align: center;
-    }
-
-    .footer-logo {
-      font-family: var(--mono);
-      font-size: 1.1rem;
-      color: var(--accent);
-      font-weight: 700;
-      margin-bottom: 0.75rem;
-    }
-
-    .footer-text {
-      color: var(--muted);
-      font-size: 0.85rem;
-    }
-
-    .footer-links {
-      display: flex; gap: 2rem; justify-content: center;
-      margin-top: 1.5rem; flex-wrap: wrap;
-    }
-
-    .footer-links a {
-      color: var(--muted);
-      text-decoration: none;
-      font-size: 0.82rem;
-      transition: color 0.2s;
-    }
-
-    .footer-links a:hover { color: var(--accent); }
-
-    /* ── SCROLLBAR ── */
-    ::-webkit-scrollbar { width: 6px; height: 6px; }
-    ::-webkit-scrollbar-track { background: var(--bg); }
-    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
-    ::-webkit-scrollbar-thumb:hover { background: var(--muted); }
-
-    /* ── RESPONSIVE ── */
-    @media (max-width: 768px) {
-      .nav-links { display: none; }
-      .hero-stats { gap: 1.25rem; }
-      .component-grid { grid-template-columns: 1fr 1fr; }
-    }
-
-    /* ── PROGRESS BAR ── */
-    .progress-bar-wrap {
-      background: var(--border);
-      border-radius: 999px;
-      height: 4px;
-      overflow: hidden;
-      margin: 0.5rem 0 1.5rem;
-    }
-
-    .progress-bar-fill {
-      height: 100%;
-      border-radius: 999px;
-      background: linear-gradient(90deg, var(--accent), var(--accent2));
-      transition: width 0.6s ease;
-    }
-
-    /* ── HIGHLIGHT ── */
-    code {
-      font-family: var(--mono);
-      font-size: 0.82em;
-      background: rgba(0,212,255,0.08);
-      border: 1px solid rgba(0,212,255,0.15);
-      border-radius: 4px;
-      padding: 0.1em 0.4em;
-      color: var(--accent);
-    }
-
-    /* Floating objects in hero */
-    .float-obj {
-      position: absolute;
-      border-radius: 50%;
-      filter: blur(60px);
-      pointer-events: none;
-    }
-
-    .float-obj:nth-child(1) {
-      width: 400px; height: 400px;
-      background: rgba(0,212,255,0.05);
-      top: -100px; right: -100px;
-      animation: floatA 8s ease-in-out infinite;
-    }
-
-    .float-obj:nth-child(2) {
-      width: 300px; height: 300px;
-      background: rgba(123,97,255,0.06);
-      bottom: -50px; left: -50px;
-      animation: floatB 10s ease-in-out infinite;
-    }
-
-    @keyframes floatA {
-      0%, 100% { transform: translate(0, 0); }
-      50% { transform: translate(-30px, 20px); }
-    }
-
-    @keyframes floatB {
-      0%, 100% { transform: translate(0, 0); }
-      50% { transform: translate(20px, -30px); }
-    }
-
-    /* Tabs */
-    .tabs-wrapper {
-      display: flex; gap: 0.25rem;
-      border-bottom: 1px solid var(--border);
-      margin-bottom: 2rem;
-      overflow-x: auto;
-    }
-
-    .tab-btn {
-      padding: 0.7rem 1.4rem;
-      background: transparent;
-      border: none;
-      border-bottom: 2px solid transparent;
-      color: var(--muted);
-      font-family: var(--sans);
-      font-size: 0.88rem;
-      cursor: pointer;
-      transition: all 0.2s;
-      white-space: nowrap;
-      margin-bottom: -1px;
-    }
-
-    .tab-btn.active, .tab-btn:hover {
-      color: var(--text);
-    }
-
-    .tab-btn.active {
-      border-bottom-color: var(--accent);
-      color: var(--accent);
-    }
-  </style>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Sora:wght@300;400;600;700&family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
 
-<!-- NAV -->
-<nav>
-  <a class="nav-logo" href="#">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-      <polygon points="12 2 22 8.5 22 15.5 12 22 2 15.5 2 8.5"/>
-      <line x1="12" y1="2" x2="12" y2="22"/>
-      <line x1="2" y1="8.5" x2="22" y2="8.5"/>
-      <line x1="2" y1="15.5" x2="22" y2="15.5"/>
-    </svg>
-    K8s Foundation
-  </a>
-  <ul class="nav-links">
-    <li><a href="#overview">Khóa học</a></li>
-    <li><a href="#lessons">Nội dung</a></li>
-    <li><a href="#quiz">Kiểm tra</a></li>
-    <li><a href="#lab">Lab</a></li>
-  </ul>
-</nav>
-
-<!-- HERO -->
-<div class="hero">
-  <div class="hero-bg"></div>
-  <div class="grid-lines"></div>
-  <div class="float-obj"></div>
-  <div class="float-obj"></div>
-  <div class="hero-content">
-    <div class="badge">
-      <span class="badge-dot"></span>
-      Kubernetes v1.35 · Ubuntu 24.04 · kubeadm
-    </div>
-    <h1>Làm chủ <span class="k8s">Kubernetes</span><br/>từ nền tảng</h1>
-    <p>Khóa học thực chiến on-premise. Từ kiến trúc cluster đến workloads, networking và service discovery — tất cả trong một lộ trình rõ ràng.</p>
-    <div class="hero-stats">
-      <div class="stat">
-        <div class="stat-num">04</div>
-        <div class="stat-label">Buổi học</div>
+  <!-- SIDEBAR -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <div class="logo">
+        <span class="logo-icon">⎈</span>
+        <span class="logo-text">K8S<span class="logo-accent">Lab</span></span>
       </div>
-      <div class="stat">
-        <div class="stat-num">3</div>
-        <div class="stat-label">VM Lab</div>
-      </div>
-      <div class="stat">
-        <div class="stat-num">40+</div>
-        <div class="stat-label">Câu hỏi quiz</div>
-      </div>
-      <div class="stat">
-        <div class="stat-num">∞</div>
-        <div class="stat-label">Labs thực hành</div>
-      </div>
-    </div>
-    <div class="cta-group">
-      <a href="#lessons" class="btn btn-primary">▶ Bắt đầu học</a>
-      <a href="#overview" class="btn btn-ghost">Xem tổng quan</a>
-    </div>
-  </div>
-</div>
-
-<!-- OVERVIEW -->
-<section id="overview">
-  <div class="section-label">// Lộ trình</div>
-  <h2 class="section-title">4 buổi học, từ zero<br/>đến production-ready</h2>
-  <p class="section-sub">Mỗi buổi học xây dựng trên nền tảng của buổi trước, đảm bảo bạn hiểu <em>tại sao</em> trước khi thực hành <em>như thế nào</em>.</p>
-
-  <div class="course-grid">
-    <a href="#lessons" onclick="switchLesson(0)" class="course-card" style="--card-color:#00d4ff">
-      <span class="card-arrow">↗</span>
-      <div class="card-num">// Buổi 01</div>
-      <div class="card-icon">🏗️</div>
-      <div class="card-title">Kiến trúc Kubernetes</div>
-      <div class="card-desc">Hiểu cluster, control plane, worker node và luồng tạo Pod từ đầu đến cuối.</div>
-      <div class="card-tags">
-        <span class="tag">kube-apiserver</span>
-        <span class="tag">etcd</span>
-        <span class="tag">kubelet</span>
-        <span class="tag">Static Pod</span>
-      </div>
-    </a>
-
-    <a href="#lessons" onclick="switchLesson(1)" class="course-card" style="--card-color:#7b61ff">
-      <span class="card-arrow">↗</span>
-      <div class="card-num">// Buổi 02</div>
-      <div class="card-icon">🚀</div>
-      <div class="card-title">Deploy Kubernetes Cluster</div>
-      <div class="card-desc">Triển khai cụm thực tế với kubeadm, containerd và Calico CNI trên 3 VM.</div>
-      <div class="card-tags">
-        <span class="tag">kubeadm</span>
-        <span class="tag">containerd</span>
-        <span class="tag">Calico</span>
-        <span class="tag">cgroup</span>
-      </div>
-    </a>
-
-    <a href="#lessons" onclick="switchLesson(2)" class="course-card" style="--card-color:#00ff88">
-      <span class="card-arrow">↗</span>
-      <div class="card-num">// Buổi 03</div>
-      <div class="card-icon">⚙️</div>
-      <div class="card-title">Workload Fundamentals</div>
-      <div class="card-desc">Pod, ReplicaSet, Deployment, DaemonSet, StatefulSet, Job và CronJob trong thực tế.</div>
-      <div class="card-tags">
-        <span class="tag">Deployment</span>
-        <span class="tag">ReplicaSet</span>
-        <span class="tag">StatefulSet</span>
-        <span class="tag">CronJob</span>
-      </div>
-    </a>
-
-    <a href="#lessons" onclick="switchLesson(3)" class="course-card" style="--card-color:#ffd166">
-      <span class="card-arrow">↗</span>
-      <div class="card-num">// Buổi 04</div>
-      <div class="card-icon">🌐</div>
-      <div class="card-title">Networking & Service</div>
-      <div class="card-desc">ClusterIP, NodePort, Headless Service, ExternalName và DNS nội bộ Kubernetes.</div>
-      <div class="card-tags">
-        <span class="tag">ClusterIP</span>
-        <span class="tag">NodePort</span>
-        <span class="tag">CoreDNS</span>
-        <span class="tag">EndpointSlice</span>
-      </div>
-    </a>
-  </div>
-</section>
-
-<!-- LESSONS -->
-<div class="lesson-area" id="lessons">
-  <section>
-    <div class="section-label">// Nội dung bài học</div>
-    <h2 class="section-title" style="margin-bottom:2rem">Học chi tiết</h2>
-
-    <div class="lesson-nav" id="lessonNav">
-      <button class="lesson-tab active" onclick="switchLesson(0)">🏗️ Buổi 01 — Kiến trúc</button>
-      <button class="lesson-tab" onclick="switchLesson(1)">🚀 Buổi 02 — Deploy</button>
-      <button class="lesson-tab" onclick="switchLesson(2)">⚙️ Buổi 03 — Workloads</button>
-      <button class="lesson-tab" onclick="switchLesson(3)">🌐 Buổi 04 — Networking</button>
+      <button class="sidebar-close" id="sidebarClose" aria-label="Close menu">✕</button>
     </div>
 
-    <!-- PANEL 0: Architecture -->
-    <div class="lesson-panel active" id="panel-0">
-      <div class="content-block">
-        <h3><span class="icon">🎯</span> Mục tiêu buổi học</h3>
-        <p>Sau buổi học này, bạn hiểu được Kubernetes là gì, tại sao cần nó, kiến trúc tổng thể của một cluster, vai trò từng thành phần và cách Pod được tạo ra.</p>
-        <div class="progress-bar-wrap"><div class="progress-bar-fill" style="width:100%"></div></div>
-        <div class="info-box tip">
-          <span class="icon">💡</span>
-          <div>Buổi này chỉ cần hiểu kiến trúc. Chưa cần học Deployment, Service hay Ingress — những phần đó sẽ được mở khóa dần ở các buổi sau.</div>
+    <nav class="sidebar-nav">
+      <div class="nav-section-label">KHÓA HỌC</div>
+      <ul class="lesson-list" id="lessonList">
+        <li class="lesson-item active" data-lesson="0">
+          <span class="lesson-num">01</span>
+          <span class="lesson-title">Kiến trúc Kubernetes</span>
+        </li>
+        <li class="lesson-item" data-lesson="1">
+          <span class="lesson-num">02</span>
+          <span class="lesson-title">Triển khai Kubernetes Cluster</span>
+        </li>
+        <li class="lesson-item coming-soon" data-lesson="2">
+          <span class="lesson-num">03</span>
+          <span class="lesson-title">Kubernetes Objects & YAML</span>
+          <span class="badge-soon">Sắp ra</span>
+        </li>
+        <li class="lesson-item coming-soon" data-lesson="3">
+          <span class="lesson-num">04</span>
+          <span class="lesson-title">Pod & Container</span>
+          <span class="badge-soon">Sắp ra</span>
+        </li>
+        <li class="lesson-item coming-soon" data-lesson="4">
+          <span class="lesson-num">05</span>
+          <span class="lesson-title">Deployment & ReplicaSet</span>
+          <span class="badge-soon">Sắp ra</span>
+        </li>
+        <li class="lesson-item coming-soon" data-lesson="5">
+          <span class="lesson-num">06</span>
+          <span class="lesson-title">Service & Networking</span>
+          <span class="badge-soon">Sắp ra</span>
+        </li>
+        <li class="lesson-item coming-soon" data-lesson="6">
+          <span class="lesson-num">07</span>
+          <span class="lesson-title">ConfigMap & Secret</span>
+          <span class="badge-soon">Sắp ra</span>
+        </li>
+        <li class="lesson-item coming-soon" data-lesson="7">
+          <span class="lesson-num">08</span>
+          <span class="lesson-title">Storage & PersistentVolume</span>
+          <span class="badge-soon">Sắp ra</span>
+        </li>
+        <li class="lesson-item coming-soon" data-lesson="8">
+          <span class="lesson-num">09</span>
+          <span class="lesson-title">Ingress & LoadBalancer</span>
+          <span class="badge-soon">Sắp ra</span>
+        </li>
+        <li class="lesson-item coming-soon" data-lesson="9">
+          <span class="lesson-num">10</span>
+          <span class="lesson-title">RBAC & Security</span>
+          <span class="badge-soon">Sắp ra</span>
+        </li>
+        <li class="lesson-item coming-soon" data-lesson="10">
+          <span class="lesson-num">11</span>
+          <span class="lesson-title">Rolling Update & Rollback</span>
+          <span class="badge-soon">Sắp ra</span>
+        </li>
+        <li class="lesson-item coming-soon" data-lesson="11">
+          <span class="lesson-num">12</span>
+          <span class="lesson-title">Monitoring & Logging</span>
+          <span class="badge-soon">Sắp ra</span>
+        </li>
+        <li class="lesson-item coming-soon" data-lesson="12">
+          <span class="lesson-num">13</span>
+          <span class="lesson-title">Scheduling Nâng cao</span>
+          <span class="badge-soon">Sắp ra</span>
+        </li>
+        <li class="lesson-item coming-soon" data-lesson="13">
+          <span class="lesson-num">14</span>
+          <span class="lesson-title">CI/CD với Kubernetes</span>
+          <span class="badge-soon">Sắp ra</span>
+        </li>
+      </ul>
+    </nav>
+
+    <div class="sidebar-footer">
+      <div class="author-card">
+        <div class="author-avatar">H</div>
+        <div class="author-info">
+          <div class="author-name">HuyLN</div>
+          <div class="author-role">K8S Lab Author</div>
         </div>
       </div>
+    </div>
+  </aside>
 
-      <div class="content-block">
-        <h3><span class="icon">🤔</span> Kubernetes là gì và tại sao cần?</h3>
-        <p>Kubernetes là nền tảng mã nguồn mở để triển khai, vận hành và quản lý các ứng dụng containerized. Nếu Docker giúp chạy <em>một</em> container, Kubernetes quản lý <em>rất nhiều</em> container trên nhiều máy chủ.</p>
-        <p>Trong thực tế, một ứng dụng web thường gồm: Frontend, Backend API, Database, Cache, Message Queue, Worker, Monitoring Agent... Nếu chạy thủ công sẽ gặp ngay các vấn đề:</p>
-        <ul>
-          <li>Container chết — ai khởi động lại?</li>
-          <li>Server hỏng — workload chuyển sang đâu?</li>
-          <li>Cần nhiều bản sao — làm thế nào?</li>
-          <li>Rolling update, service discovery, giới hạn tài nguyên?</li>
-        </ul>
-        <div class="info-box info">
-          <span class="icon">ℹ️</span>
-          <div>Kubernetes sinh ra để giải quyết tất cả những bài toán đó — theo mô hình <strong>desired state</strong>: bạn khai báo trạng thái mong muốn, Kubernetes tự đưa cluster về đúng trạng thái đó.</div>
-        </div>
+  <!-- OVERLAY -->
+  <div class="overlay" id="overlay"></div>
+
+  <!-- MAIN CONTENT -->
+  <div class="main-wrapper">
+    <!-- TOP BAR -->
+    <header class="topbar">
+      <button class="hamburger" id="hamburger" aria-label="Open menu">
+        <span></span><span></span><span></span>
+      </button>
+      <div class="topbar-breadcrumb" id="topbarBreadcrumb">
+        <span class="breadcrumb-home">K8S Lab</span>
+        <span class="breadcrumb-sep">›</span>
+        <span class="breadcrumb-current" id="breadcrumbCurrent">Bài 01: Kiến trúc Kubernetes</span>
       </div>
+      <div class="topbar-meta">
+        <span class="meta-tag">k8s v1.35</span>
+        <span class="meta-tag">Ubuntu 24.04</span>
+      </div>
+    </header>
 
-      <div class="content-block">
-        <h3><span class="icon">🗺️</span> Kiến trúc Cluster tổng quan</h3>
-        <p>Một Kubernetes cluster gồm hai nhóm thành phần: <strong>Control Plane</strong> (bộ não) và <strong>Worker Nodes</strong> (nơi chạy workload).</p>
-        <div class="arch-diagram">
-          <pre>
-<span class="hl">Kubernetes Cluster</span>
+    <!-- CONTENT AREA -->
+    <main class="content-area" id="contentArea">
+
+      <!-- ========== BÀI 01 ========== -->
+      <article class="lesson-content active" id="lesson-0">
+        <div class="lesson-hero">
+          <div class="hero-badge">Bài 01</div>
+          <h1 class="lesson-h1">Kiến trúc Kubernetes</h1>
+          <p class="lesson-subtitle">Hiểu toàn bộ các thành phần của một K8S cluster trước khi bắt tay thực hành</p>
+          <div class="lesson-info-grid">
+            <div class="info-chip"><span class="chip-label">Phiên bản</span><span class="chip-val">Kubernetes v1.35</span></div>
+            <div class="info-chip"><span class="chip-label">Hệ điều hành</span><span class="chip-val">Ubuntu 24.04</span></div>
+            <div class="info-chip"><span class="chip-label">Mô hình lab</span><span class="chip-val">On-premise / kubeadm</span></div>
+            <div class="info-chip"><span class="chip-label">Số VM</span><span class="chip-val">3 VM</span></div>
+          </div>
+
+          <div class="node-table-wrap">
+            <table class="node-table">
+              <thead><tr><th>Node</th><th>Vai trò</th><th>Mô tả</th></tr></thead>
+              <tbody>
+                <tr><td><code>master-01</code></td><td><span class="role-badge control">Control Plane</span></td><td>Chạy các thành phần điều khiển chính</td></tr>
+                <tr><td><code>worker-01</code></td><td><span class="role-badge worker">Worker Node</span></td><td>Chạy workload ứng dụng</td></tr>
+                <tr><td><code>worker-02</code></td><td><span class="role-badge worker">Worker Node</span></td><td>Chạy workload ứng dụng</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- MỤC TIÊU -->
+        <section class="lesson-section">
+          <h2>🎯 Mục tiêu buổi học</h2>
+          <p>Sau buổi học này, cần nắm được:</p>
+          <ul class="goal-list">
+            <li>Kubernetes là gì và vì sao cần Kubernetes</li>
+            <li>Kiến trúc tổng thể của một Kubernetes cluster</li>
+            <li>Sự khác nhau giữa <strong>Control Plane Node</strong> và <strong>Worker Node</strong></li>
+            <li>Vai trò của các thành phần chính: <code>kube-apiserver</code>, <code>etcd</code>, <code>kube-scheduler</code>, <code>kube-controller-manager</code>, <code>kubelet</code>, <code>kube-proxy</code>, Container Runtime, CNI Plugin, CoreDNS</li>
+            <li>Cách quan sát kiến trúc cluster bằng <code>kubectl</code>, <code>systemctl</code>, <code>crictl</code></li>
+            <li>Pod là đơn vị nhỏ nhất mà Kubernetes có thể triển khai và quản lý</li>
+          </ul>
+        </section>
+
+        <!-- PHẦN 1 -->
+        <section class="lesson-section">
+          <h2>Phần 1: Kubernetes là gì?</h2>
+          <p>Kubernetes là một nền tảng mã nguồn mở dùng để triển khai, vận hành và quản lý các ứng dụng containerized. Nếu Docker/container runtime giúp chạy một container, thì Kubernetes giúp quản lý rất nhiều container chạy trên nhiều máy chủ khác nhau.</p>
+          <p>Một hệ thống thực tế thường gồm nhiều thành phần: Frontend, Backend API, Database, Cache, Message queue, Worker, Monitoring agent, Logging agent. Kubernetes giải quyết các bài toán: tự khởi động lại container khi chết, chuyển workload khi server hỏng, scale nhiều bản sao, rolling update, service discovery, giới hạn tài nguyên, expose ứng dụng ra ngoài.</p>
+        </section>
+
+        <!-- PHẦN 2 -->
+        <section class="lesson-section">
+          <h2>Phần 2: Kubernetes Cluster là gì?</h2>
+          <p>Một Kubernetes cluster là tập hợp các máy chủ cùng hoạt động để chạy ứng dụng container. Cluster luôn có hai nhóm thành phần lớn:</p>
+
+          <p class="code-desc">Sơ đồ cấu trúc tổng quan của một Kubernetes Cluster với 3 VM trong lab:</p>
+          <div class="code-block">
+            <div class="code-header">
+              <span class="code-lang">text</span>
+              <button class="copy-btn" data-code="Kubernetes Cluster
+├── Control Plane (master-01)
+│   ├── kube-apiserver
+│   ├── etcd
+│   ├── kube-scheduler
+│   └── kube-controller-manager
 │
-├── <span class="hl2">Control Plane</span> (master-01)
-│   ├── <span class="hl">kube-apiserver</span>     ← Cổng giao tiếp trung tâm
-│   ├── <span class="hl">etcd</span>              ← Database lưu trạng thái cluster
-│   ├── <span class="hl">kube-scheduler</span>    ← Chọn node cho Pod
-│   └── <span class="hl">kube-controller-manager</span>  ← Vòng lặp điều khiển
+└── Worker Nodes
+    ├── kubelet
+    ├── kube-proxy
+    ├── container runtime (containerd)
+    └── pods">Sao chép</button>
+            </div>
+            <pre><code>Kubernetes Cluster
+├── Control Plane (master-01)
+│   ├── kube-apiserver
+│   ├── etcd
+│   ├── kube-scheduler
+│   └── kube-controller-manager
 │
-└── <span class="hl3">Worker Nodes</span> (worker-01, worker-02)
-    ├── <span class="hl3">kubelet</span>           ← Node agent, chạy Pod
-    ├── <span class="hl3">kube-proxy</span>        ← Quản lý network rules
-    ├── <span class="hl3">container runtime</span> ← containerd
-    └── <span class="hl3">CNI Plugin</span>        ← Calico (network cho Pod)
-</pre>
-        </div>
-      </div>
+└── Worker Nodes
+    ├── kubelet
+    ├── kube-proxy
+    ├── container runtime (containerd)
+    └── pods</code></pre>
+          </div>
+        </section>
 
-      <div class="content-block">
-        <h3><span class="icon">⚡</span> Các thành phần Control Plane</h3>
-        <div class="component-grid">
-          <div class="component-card" style="--cc-color:#00d4ff">
-            <div class="cc-badge" style="background:rgba(0,212,255,0.1);color:#00d4ff">Control Plane</div>
-            <div class="cc-name">kube-apiserver</div>
-            <div class="cc-desc">Cổng giao tiếp trung tâm. Mọi request đều đi qua đây. Xác thực, phân quyền và ghi vào etcd.</div>
-          </div>
-          <div class="component-card" style="--cc-color:#7b61ff">
-            <div class="cc-badge" style="background:rgba(123,97,255,0.1);color:#7b61ff">Control Plane</div>
-            <div class="cc-name">etcd</div>
-            <div class="cc-desc">Key-value store. Lưu toàn bộ trạng thái cluster. Mất etcd = mất cluster state.</div>
-          </div>
-          <div class="component-card" style="--cc-color:#00ff88">
-            <div class="cc-badge" style="background:rgba(0,255,136,0.1);color:#00ff88">Control Plane</div>
-            <div class="cc-name">kube-scheduler</div>
-            <div class="cc-desc">Quan sát Pod chưa có node. Chọn node phù hợp dựa trên tài nguyên và constraints.</div>
-          </div>
-          <div class="component-card" style="--cc-color:#ffd166">
-            <div class="cc-badge" style="background:rgba(255,209,102,0.1);color:#ffd166">Control Plane</div>
-            <div class="cc-name">controller-manager</div>
-            <div class="cc-desc">Chạy các controller vòng lặp: ReplicaSet, Node, Job... Đảm bảo desired state.</div>
-          </div>
-          <div class="component-card" style="--cc-color:#00d4ff">
-            <div class="cc-badge" style="background:rgba(0,212,255,0.1);color:#00d4ff">Worker Node</div>
-            <div class="cc-name">kubelet</div>
-            <div class="cc-desc">Agent trên mỗi node. Nhận PodSpec, giao tiếp với container runtime để chạy Pod.</div>
-          </div>
-          <div class="component-card" style="--cc-color:#7b61ff">
-            <div class="cc-badge" style="background:rgba(123,97,255,0.1);color:#7b61ff">Worker Node</div>
-            <div class="cc-name">kube-proxy</div>
-            <div class="cc-desc">Duy trì network rules trên node. Cho phép giao tiếp Pod qua Service.</div>
-          </div>
-          <div class="component-card" style="--cc-color:#00ff88">
-            <div class="cc-badge" style="background:rgba(0,255,136,0.1);color:#00ff88">Add-on</div>
-            <div class="cc-name">CoreDNS</div>
-            <div class="cc-desc">DNS nội bộ cho cluster. Resolve tên Service thành ClusterIP.</div>
-          </div>
-          <div class="component-card" style="--cc-color:#ffd166">
-            <div class="cc-badge" style="background:rgba(255,209,102,0.1);color:#ffd166">Add-on</div>
-            <div class="cc-name">CNI (Calico)</div>
-            <div class="cc-desc">Cấp IP cho Pod. Định tuyến traffic giữa các Pod trên các node khác nhau.</div>
-          </div>
-        </div>
-      </div>
+        <!-- PHẦN 3 -->
+        <section class="lesson-section">
+          <h2>Phần 3: Control Plane & Các thành phần</h2>
+          <p>Control Plane là bộ não của Kubernetes cluster, không trực tiếp chạy ứng dụng business mà chịu trách nhiệm quản lý trạng thái mong muốn của toàn bộ cluster.</p>
+          <p>Trong mô hình <code>kubeadm</code>, các thành phần control plane chạy dưới dạng Static Pod, manifest được đặt tại:</p>
 
-      <div class="content-block">
-        <h3><span class="icon">🔄</span> Luồng tạo một Pod</h3>
-        <p>Khi bạn chạy <code>kubectl apply -f pod.yaml</code>, đây là những gì xảy ra:</p>
-        <div class="arch-diagram">
-          <pre>
-1. <span class="hl">kubectl</span> → HTTP request → <span class="hl">kube-apiserver</span>
-   └── Xác thực, phân quyền, validate object
-
-2. <span class="hl">kube-apiserver</span> → Ghi Pod (Pending) → <span class="hl2">etcd</span>
-
-3. <span class="hl">kube-scheduler</span> → Phát hiện Pod chưa có node
-   └── Chọn node phù hợp (worker-01)
-   └── Ghi node binding → <span class="hl2">etcd</span> qua API Server
-
-4. <span class="hl3">kubelet</span> trên worker-01 → Phát hiện Pod được gán
-   └── Gọi container runtime (containerd)
-   └── Pull image nếu chưa có
-   └── Tạo và chạy container
-
-5. <span class="hl3">kubelet</span> → Báo cáo trạng thái → <span class="hl">kube-apiserver</span>
-   └── Pod status: Running
-</pre>
-        </div>
-        <div class="info-box warn">
-          <span class="icon">⚠️</span>
-          <div>Kubectl không nói chuyện trực tiếp với kubelet hay containerd. Tất cả đều đi qua <strong>kube-apiserver</strong>. Đây là nguyên tắc cốt lõi của Kubernetes.</div>
-        </div>
-      </div>
-
-      <div class="content-block">
-        <h3><span class="icon">📝</span> Static Pod trong kubeadm</h3>
-        <p>Trong mô hình kubeadm, các thành phần Control Plane tự chạy dưới dạng <strong>Static Pod</strong>. Kubelet đọc manifest từ thư mục cố định và chạy các Pod này mà không cần qua kube-apiserver.</p>
-        <div class="code-block">
-          <div class="code-header">
-            <span class="code-lang">bash</span>
-            <button class="copy-btn" onclick="copyCode(this)">copy</button>
+          <p class="code-desc">Cấu trúc thư mục chứa Static Pod manifest của control plane trên node <code>master-01</code>:</p>
+          <div class="code-block">
+            <div class="code-header">
+              <span class="code-lang">text</span>
+              <button class="copy-btn" data-code="/etc/kubernetes/manifests/
+├── kube-apiserver.yaml
+├── etcd.yaml
+├── kube-controller-manager.yaml
+└── kube-scheduler.yaml">Sao chép</button>
+            </div>
+            <pre><code>/etc/kubernetes/manifests/
+├── kube-apiserver.yaml
+├── etcd.yaml
+├── kube-controller-manager.yaml
+└── kube-scheduler.yaml</code></pre>
           </div>
-          <div class="code-body">
-<pre><span class="cm"># Xem các Static Pod manifest trên master node</span>
-<span class="cmd">ls /etc/kubernetes/manifests/</span>
-<span class="cm"># kube-apiserver.yaml</span>
-<span class="cm"># etcd.yaml</span>
-<span class="cm"># kube-controller-manager.yaml</span>
-<span class="cm"># kube-scheduler.yaml</span>
 
-<span class="cm"># Xem các Pod hệ thống đang chạy</span>
-<span class="cmd">kubectl get pods -n kube-system</span>
-
-<span class="cm"># Xem các node trong cluster</span>
-<span class="cmd">kubectl get nodes -o wide</span></pre>
-          </div>
-        </div>
-      </div>
-
-      <div class="content-block">
-        <h3><span class="icon">🧪</span> Pod manifest đầu tiên</h3>
-        <p>Pod là đơn vị deploy nhỏ nhất trong Kubernetes. Mỗi Pod có một IP riêng, chứa một hoặc nhiều container chia sẻ network và storage.</p>
-        <div class="code-block">
-          <div class="code-header">
-            <span class="code-lang">yaml</span>
-            <button class="copy-btn" onclick="copyCode(this)">copy</button>
-          </div>
-          <div class="code-body">
-<pre><span class="kw">apiVersion</span>: v1
-<span class="kw">kind</span>: Pod
-<span class="kw">metadata</span>:
-  <span class="kw">name</span>: <span class="str">nginx-architecture-demo</span>
-  <span class="kw">namespace</span>: <span class="str">default</span>
-  <span class="kw">labels</span>:
-    <span class="kw">app</span>: <span class="str">nginx</span>
-    <span class="kw">lesson</span>: <span class="str">architecture</span>
-<span class="kw">spec</span>:
-  <span class="kw">containers</span>:
-    - <span class="kw">name</span>: <span class="str">nginx</span>
-      <span class="kw">image</span>: <span class="str">nginx:1.27</span>
-      <span class="kw">ports</span>:
-        - <span class="kw">containerPort</span>: 80</pre>
-          </div>
-        </div>
-        <div class="code-block">
-          <div class="code-header">
-            <span class="code-lang">bash</span>
-            <button class="copy-btn" onclick="copyCode(this)">copy</button>
-          </div>
-          <div class="code-body">
-<pre><span class="cmd">kubectl apply -f nginx-pod.yaml</span>
-<span class="cmd">kubectl get pod nginx-architecture-demo -o wide</span>
-<span class="cmd">kubectl describe pod nginx-architecture-demo</span>
-<span class="cm"># Xem Events: Scheduled → Pulling → Pulled → Created → Started</span></pre>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- PANEL 1: Deploy -->
-    <div class="lesson-panel" id="panel-1">
-      <div class="content-block">
-        <h3><span class="icon">🎯</span> Mục tiêu buổi học</h3>
-        <p>Triển khai cụm Kubernetes thực tế trên 3 VM Ubuntu 24.04 với kubeadm, containerd và Calico CNI. Hiểu mỗi bước làm gì và tại sao.</p>
-        <div class="info-box info">
-          <span class="icon">ℹ️</span>
-          <div>Buổi này chuyển kiến thức kiến trúc từ buổi 01 thành một cluster <em>thật</em>. Chưa cần Deployment hay Service — chỉ cần cluster hoạt động.</div>
-        </div>
-      </div>
-
-      <div class="content-block">
-        <h3><span class="icon">🖥️</span> Quy hoạch Lab</h3>
-        <table class="k8s-table">
-          <thead>
-            <tr><th>Node</th><th>Vai trò</th><th>IP</th><th>CPU/RAM</th></tr>
-          </thead>
-          <tbody>
-            <tr><td>master-01</td><td>Control Plane</td><td>192.168.1.10</td><td>2 CPU / 4GB</td></tr>
-            <tr><td>worker-01</td><td>Worker Node</td><td>192.168.1.11</td><td>2 CPU / 2GB</td></tr>
-            <tr><td>worker-02</td><td>Worker Node</td><td>192.168.1.12</td><td>2 CPU / 2GB</td></tr>
-          </tbody>
-        </table>
-        <div class="info-box tip">
-          <span class="icon">💡</span>
-          <div>Pod CIDR: <code>192.168.0.0/16</code> (Calico mặc định). Service CIDR: <code>10.96.0.0/12</code> (kubeadm mặc định).</div>
-        </div>
-      </div>
-
-      <div class="content-block">
-        <h3><span class="icon">📋</span> Các bước triển khai — Chuẩn bị hệ thống</h3>
-        <p>Thực hiện trên <strong>tất cả 3 node</strong>:</p>
-        <div class="lab-steps">
-          <div class="lab-step">
-            <div class="step-line"></div>
-            <div class="step-num">1</div>
-            <div class="step-content">
-              <h4>Cấu hình hostname</h4>
-              <div class="code-block">
-                <div class="code-header"><span class="code-lang">bash — master-01</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
-                <div class="code-body"><pre><span class="cmd">hostnamectl set-hostname master-01</span></pre></div>
-              </div>
+          <div class="component-grid">
+            <div class="component-card">
+              <div class="comp-icon">🔌</div>
+              <div class="comp-name">kube-apiserver</div>
+              <div class="comp-desc">Cổng giao tiếp trung tâm. Tất cả yêu cầu gửi vào cluster đều đi qua đây. Xác thực, kiểm tra quyền, ghi trạng thái vào etcd.</div>
+            </div>
+            <div class="component-card">
+              <div class="comp-icon">🗄️</div>
+              <div class="comp-name">etcd</div>
+              <div class="comp-desc">Cơ sở dữ liệu key-value. Lưu toàn bộ trạng thái cluster: nodes, pods, namespaces, config. "Bộ nhớ dài hạn" của Kubernetes.</div>
+            </div>
+            <div class="component-card">
+              <div class="comp-icon">📅</div>
+              <div class="comp-name">kube-scheduler</div>
+              <div class="comp-desc">Quyết định Pod chạy trên node nào. Quan sát Pod chưa được gán node và chọn node phù hợp. Không chạy container.</div>
+            </div>
+            <div class="component-card">
+              <div class="comp-icon">🔄</div>
+              <div class="comp-name">controller-manager</div>
+              <div class="comp-desc">Chạy các vòng lặp điều khiển liên tục. Quan sát trạng thái thực tế và đưa về trạng thái mong muốn (desired state).</div>
+            </div>
+            <div class="component-card">
+              <div class="comp-icon">🤖</div>
+              <div class="comp-name">kubelet</div>
+              <div class="comp-desc">Node agent, chạy trên mỗi worker node. Nhận PodSpec, làm việc với container runtime để thực sự chạy container.</div>
+            </div>
+            <div class="component-card">
+              <div class="comp-icon">🌐</div>
+              <div class="comp-name">kube-proxy</div>
+              <div class="comp-desc">Chạy trên mỗi node. Quản lý network rules, cho phép giao tiếp trong và ngoài cluster qua iptables/IPVS.</div>
+            </div>
+            <div class="component-card">
+              <div class="comp-icon">📦</div>
+              <div class="comp-name">Container Runtime</div>
+              <div class="comp-desc">Thực sự chạy container. Lab này dùng containerd. kubelet giao tiếp với runtime qua CRI (Container Runtime Interface).</div>
+            </div>
+            <div class="component-card">
+              <div class="comp-icon">🔗</div>
+              <div class="comp-name">CNI Plugin</div>
+              <div class="comp-desc">Cung cấp mạng cho Pod. Lab này dùng Calico. Gán IP cho Pod, cấu hình routing giữa các Pod trên các node khác nhau.</div>
+            </div>
+            <div class="component-card">
+              <div class="comp-icon">📡</div>
+              <div class="comp-name">CoreDNS</div>
+              <div class="comp-desc">DNS nội bộ cho cluster. Cho phép Pod dùng tên service thay vì IP. Ví dụ: my-service.default.svc.cluster.local.</div>
             </div>
           </div>
-          <div class="lab-step">
-            <div class="step-line"></div>
-            <div class="step-num">2</div>
-            <div class="step-content">
-              <h4>Tắt swap (bắt buộc)</h4>
-              <div class="code-block">
-                <div class="code-header"><span class="code-lang">bash — all nodes</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
-                <div class="code-body"><pre><span class="cmd">swapoff -a</span>
-<span class="cmd">sed -i '/ swap / s/^/#/' /etc/fstab</span></pre></div>
+        </section>
+
+        <!-- PHẦN 4: THỰC HÀNH QUAN SÁT -->
+        <section class="lesson-section">
+          <h2>Phần 4: Thực hành quan sát kiến trúc</h2>
+          <p>Dùng các lệnh sau để quan sát từng thành phần của cluster đang chạy.</p>
+
+          <h3>Kiểm tra trạng thái các node</h3>
+          <p class="code-desc">Xem danh sách tất cả node trong cluster, bao gồm địa chỉ IP, OS image, container runtime và phiên bản kernel:</p>
+          <div class="code-block">
+            <div class="code-header">
+              <span class="code-lang">bash</span>
+              <button class="copy-btn" data-code="kubectl get nodes -o wide">Sao chép</button>
+            </div>
+            <pre><code>kubectl get nodes -o wide</code></pre>
+          </div>
+
+          <h3>Kiểm tra health của các component</h3>
+          <p class="code-desc">Kiểm tra sức khỏe các thành phần control plane (etcd, kube-scheduler, kube-controller-manager):</p>
+          <div class="code-block">
+            <div class="code-header">
+              <span class="code-lang">bash</span>
+              <button class="copy-btn" data-code="kubectl get componentstatuses">Sao chép</button>
+            </div>
+            <pre><code>kubectl get componentstatuses</code></pre>
+          </div>
+
+          <h3>Xem các Pod hệ thống</h3>
+          <p class="code-desc">Liệt kê tất cả Pod đang chạy trong namespace <code>kube-system</code> — nơi chứa các thành phần hệ thống của Kubernetes như apiserver, etcd, scheduler, coredns, calico:</p>
+          <div class="code-block">
+            <div class="code-header">
+              <span class="code-lang">bash</span>
+              <button class="copy-btn" data-code="kubectl get pods -n kube-system -o wide">Sao chép</button>
+            </div>
+            <pre><code>kubectl get pods -n kube-system -o wide</code></pre>
+          </div>
+
+          <h3>Kiểm tra Static Pod manifests</h3>
+          <p class="code-desc">Liệt kê các file YAML trong thư mục <code>/etc/kubernetes/manifests/</code> — đây là nơi kubeadm đặt định nghĩa Static Pod cho các control plane component. kubelet sẽ đọc thư mục này và tự khởi chạy các Pod tương ứng:</p>
+          <div class="code-block">
+            <div class="code-header">
+              <span class="code-lang">bash</span>
+              <button class="copy-btn" data-code="ls -la /etc/kubernetes/manifests/">Sao chép</button>
+            </div>
+            <pre><code>ls -la /etc/kubernetes/manifests/</code></pre>
+          </div>
+
+          <h3>Kiểm tra kubelet service</h3>
+          <p class="code-desc">Kiểm tra trạng thái của kubelet — đây là service chạy trực tiếp trên mỗi node (không phải Pod), chịu trách nhiệm khởi động và giám sát tất cả container trên node đó:</p>
+          <div class="code-block">
+            <div class="code-header">
+              <span class="code-lang">bash</span>
+              <button class="copy-btn" data-code="systemctl status kubelet">Sao chép</button>
+            </div>
+            <pre><code>systemctl status kubelet</code></pre>
+          </div>
+
+          <h3>Xem kubeconfig</h3>
+          <p class="code-desc">Hiển thị cấu hình kết nối của kubectl, bao gồm cluster endpoint, user credential và context hiện tại. Đây là file mà kubectl dùng để biết cách kết nối đến API Server:</p>
+          <div class="code-block">
+            <div class="code-header">
+              <span class="code-lang">bash</span>
+              <button class="copy-btn" data-code="kubectl config view">Sao chép</button>
+            </div>
+            <pre><code>kubectl config view</code></pre>
+          </div>
+
+          <h3>Kiểm tra API resources có sẵn</h3>
+          <p class="code-desc">Liệt kê tất cả loại resource mà Kubernetes API hỗ trợ, bao gồm tên rút gọn, API group, namespaced hay không, và kind. Dùng để khám phá các object có thể tạo trong cluster:</p>
+          <div class="code-block">
+            <div class="code-header">
+              <span class="code-lang">bash</span>
+              <button class="copy-btn" data-code="kubectl api-resources">Sao chép</button>
+            </div>
+            <pre><code>kubectl api-resources</code></pre>
+          </div>
+        </section>
+
+        <!-- PHẦN 5: TẠO POD ĐẦU TIÊN -->
+        <section class="lesson-section">
+          <h2>Phần 5: Tạo Pod đầu tiên – quan sát luồng kiến trúc</h2>
+          <p>Tạo một Pod nginx đơn giản để quan sát trực tiếp cách các thành phần Kubernetes phối hợp với nhau.</p>
+
+          <h3>Bước 1: Tạo manifest file</h3>
+          <p class="code-desc">Tạo file YAML định nghĩa một Pod chạy nginx. Lệnh <code>cat &gt; ... &lt;&lt;'EOF'</code> cho phép nhập nội dung nhiều dòng trực tiếp trong terminal. Pod sẽ chạy nginx phiên bản 1.27 và lắng nghe trên port 80:</p>
+          <div class="code-block">
+            <div class="code-header">
+              <span class="code-lang">bash</span>
+              <button class="copy-btn" data-code="cat > nginx-pod.yaml <<'EOF'
+apiVersion: v1
+kind: Pod
+metadata:
+  name: nginx-architecture-demo
+  namespace: default
+  labels:
+    app: nginx
+    lesson: architecture
+spec:
+  containers:
+    - name: nginx
+      image: nginx:1.27
+      ports:
+        - containerPort: 80
+EOF">Sao chép</button>
+            </div>
+            <pre><code>cat > nginx-pod.yaml &lt;&lt;'EOF'
+apiVersion: v1
+kind: Pod
+metadata:
+  name: nginx-architecture-demo
+  namespace: default
+  labels:
+    app: nginx
+    lesson: architecture
+spec:
+  containers:
+    - name: nginx
+      image: nginx:1.27
+      ports:
+        - containerPort: 80
+EOF</code></pre>
+          </div>
+
+          <h3>Bước 2: Apply manifest</h3>
+          <p class="code-desc">Gửi manifest lên API Server. kubectl sẽ đọc file YAML, gửi HTTP POST đến <code>kube-apiserver</code>. API Server xác thực, lưu vào <code>etcd</code>, sau đó <code>kube-scheduler</code> sẽ chọn node phù hợp:</p>
+          <div class="code-block">
+            <div class="code-header">
+              <span class="code-lang">bash</span>
+              <button class="copy-btn" data-code="kubectl apply -f nginx-pod.yaml">Sao chép</button>
+            </div>
+            <pre><code>kubectl apply -f nginx-pod.yaml</code></pre>
+          </div>
+
+          <h3>Bước 3: Kiểm tra Pod được tạo</h3>
+          <p class="code-desc">Xem trạng thái Pod kèm thông tin node đang chạy và địa chỉ IP được cấp phát. Ghi lại tên node để SSH vào kiểm tra ở bước sau:</p>
+          <div class="code-block">
+            <div class="code-header">
+              <span class="code-lang">bash</span>
+              <button class="copy-btn" data-code="kubectl get pod nginx-architecture-demo -o wide">Sao chép</button>
+            </div>
+            <pre><code>kubectl get pod nginx-architecture-demo -o wide</code></pre>
+          </div>
+
+          <h3>Bước 4: Mô tả Pod – quan sát luồng sự kiện</h3>
+          <p class="code-desc">Lệnh <code>describe</code> hiển thị chi tiết đầy đủ của Pod, bao gồm node được chọn, image đang dùng, và quan trọng nhất là phần <strong>Events</strong> — nơi có thể thấy toàn bộ luồng xử lý của Kubernetes từ lúc Pod được tạo đến lúc container chạy:</p>
+          <div class="code-block">
+            <div class="code-header">
+              <span class="code-lang">bash</span>
+              <button class="copy-btn" data-code="kubectl describe pod nginx-architecture-demo">Sao chép</button>
+            </div>
+            <pre><code>kubectl describe pod nginx-architecture-demo</code></pre>
+          </div>
+
+          <div class="info-box">
+            <div class="info-box-title">📋 Ý nghĩa từng Event</div>
+            <table class="node-table">
+              <thead><tr><th>Event</th><th>Ý nghĩa</th></tr></thead>
+              <tbody>
+                <tr><td><code>Scheduled</code></td><td>kube-scheduler đã chọn node cho Pod</td></tr>
+                <tr><td><code>Pulling</code></td><td>containerd đang pull image từ registry</td></tr>
+                <tr><td><code>Pulled</code></td><td>Image đã được pull xong thành công</td></tr>
+                <tr><td><code>Created</code></td><td>Container đã được tạo bởi container runtime</td></tr>
+                <tr><td><code>Started</code></td><td>Container đã được khởi chạy thành công</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <h3>Bước 5: SSH vào worker node và kiểm tra container thực tế</h3>
+          <p class="code-desc">SSH vào worker node đang chạy Pod (thay <code>worker-01</code> bằng tên node thực tế từ bước 3). Lệnh <code>crictl ps</code> dùng để xem các container đang chạy trực tiếp qua CRI interface — chứng minh rằng kubelet và containerd đã thực sự tạo container trên node đó:</p>
+          <div class="code-block">
+            <div class="code-header">
+              <span class="code-lang">bash</span>
+              <button class="copy-btn" data-code="ssh worker-01
+sudo crictl ps | grep nginx">Sao chép</button>
+            </div>
+            <pre><code>ssh worker-01
+sudo crictl ps | grep nginx</code></pre>
+          </div>
+
+          <h3>Bước 6: Xóa Pod</h3>
+          <p class="code-desc">Xóa Pod bằng declarative manifest. Kubernetes sẽ xóa object khỏi <code>etcd</code>, kubelet nhận tín hiệu và dừng container, container runtime dọn dẹp. Kiểm tra lại để xác nhận Pod đã bị xóa hoàn toàn:</p>
+          <div class="code-block">
+            <div class="code-header">
+              <span class="code-lang">bash</span>
+              <button class="copy-btn" data-code="kubectl delete -f nginx-pod.yaml
+kubectl get pods">Sao chép</button>
+            </div>
+            <pre><code>kubectl delete -f nginx-pod.yaml
+kubectl get pods</code></pre>
+          </div>
+        </section>
+
+        <!-- PHẦN 6: CÂU HỎI KIỂM TRA -->
+        <section class="lesson-section">
+          <h2>🧪 Câu hỏi kiểm tra cuối buổi</h2>
+          <div class="quiz-container" id="quiz-0">
+            <div class="quiz-item">
+              <p class="quiz-q">1. Trong Kubernetes, thành phần nào là cổng giao tiếp trung tâm của cluster?</p>
+              <div class="quiz-options">
+                <button class="quiz-opt" data-correct="false">A. kubelet</button>
+                <button class="quiz-opt" data-correct="true">B. kube-apiserver</button>
+                <button class="quiz-opt" data-correct="false">C. containerd</button>
+                <button class="quiz-opt" data-correct="false">D. CoreDNS</button>
               </div>
+              <div class="quiz-explain hidden">✅ <strong>Đáp án B:</strong> kube-apiserver expose Kubernetes API và là điểm giao tiếp trung tâm giữa người dùng và các thành phần nội bộ.</div>
+            </div>
+            <div class="quiz-item">
+              <p class="quiz-q">2. Thành phần nào lưu trạng thái của Kubernetes cluster?</p>
+              <div class="quiz-options">
+                <button class="quiz-opt" data-correct="false">A. kube-scheduler</button>
+                <button class="quiz-opt" data-correct="false">B. kube-proxy</button>
+                <button class="quiz-opt" data-correct="true">C. etcd</button>
+                <button class="quiz-opt" data-correct="false">D. CoreDNS</button>
+              </div>
+              <div class="quiz-explain hidden">✅ <strong>Đáp án C:</strong> etcd là key-value store dùng để lưu dữ liệu của Kubernetes API Server.</div>
+            </div>
+            <div class="quiz-item">
+              <p class="quiz-q">3. Khi một Pod mới được tạo nhưng chưa được gán vào node, thành phần nào sẽ chọn node cho Pod?</p>
+              <div class="quiz-options">
+                <button class="quiz-opt" data-correct="true">A. kube-scheduler</button>
+                <button class="quiz-opt" data-correct="false">B. kubelet</button>
+                <button class="quiz-opt" data-correct="false">C. kube-proxy</button>
+                <button class="quiz-opt" data-correct="false">D. containerd</button>
+              </div>
+              <div class="quiz-explain hidden">✅ <strong>Đáp án A:</strong> kube-scheduler quan sát các Pod chưa được gán node và chọn node phù hợp.</div>
+            </div>
+            <div class="quiz-item">
+              <p class="quiz-q">4. Trong mô hình kubeadm, các manifest control plane thường nằm ở đâu?</p>
+              <div class="quiz-options">
+                <button class="quiz-opt" data-correct="false">A. /var/lib/kubelet/config.yaml</button>
+                <button class="quiz-opt" data-correct="true">B. /etc/kubernetes/manifests/</button>
+                <button class="quiz-opt" data-correct="false">C. /etc/containerd/config.toml</button>
+                <button class="quiz-opt" data-correct="false">D. /var/log/pods/</button>
+              </div>
+              <div class="quiz-explain hidden">✅ <strong>Đáp án B:</strong> kubeadm đặt các Static Pod manifest của control plane component trong /etc/kubernetes/manifests/.</div>
+            </div>
+            <div class="quiz-item">
+              <p class="quiz-q">5. Công cụ nào dùng để xem container thực tế đang chạy qua CRI runtime trên node?</p>
+              <div class="quiz-options">
+                <button class="quiz-opt" data-correct="false">A. kubectl config view</button>
+                <button class="quiz-opt" data-correct="true">B. crictl ps</button>
+                <button class="quiz-opt" data-correct="false">C. kubeadm init</button>
+                <button class="quiz-opt" data-correct="false">D. kubectl api-resources</button>
+              </div>
+              <div class="quiz-explain hidden">✅ <strong>Đáp án B:</strong> crictl ps dùng để xem container qua CRI runtime trực tiếp trên node.</div>
             </div>
           </div>
-          <div class="lab-step">
-            <div class="step-line"></div>
-            <div class="step-num">3</div>
-            <div class="step-content">
-              <h4>Load kernel modules</h4>
-              <div class="code-block">
-                <div class="code-header"><span class="code-lang">bash — all nodes</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
-                <div class="code-body"><pre><span class="cmd">cat > /etc/modules-load.d/k8s.conf &lt;&lt;EOF
-overlay
-br_netfilter
-EOF</span>
-<span class="cmd">modprobe overlay && modprobe br_netfilter</span></pre></div>
-              </div>
-            </div>
-          </div>
-          <div class="lab-step">
-            <div class="step-line"></div>
-            <div class="step-num">4</div>
-            <div class="step-content">
-              <h4>Cấu hình sysctl</h4>
-              <div class="code-block">
-                <div class="code-header"><span class="code-lang">bash — all nodes</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
-                <div class="code-body"><pre><span class="cmd">cat > /etc/sysctl.d/k8s.conf &lt;&lt;EOF
-net.bridge.bridge-nf-call-iptables  = 1
-net.bridge.bridge-nf-call-ip6tables = 1
-net.ipv4.ip_forward                 = 1
-EOF</span>
-<span class="cmd">sysctl --system</span></pre></div>
-              </div>
-            </div>
+        </section>
+      </article>
+
+      <!-- ========== BÀI 02 ========== -->
+      <article class="lesson-content" id="lesson-1">
+        <div class="lesson-hero">
+          <div class="hero-badge">Bài 02</div>
+          <h1 class="lesson-h1">Triển khai Kubernetes Cluster</h1>
+          <p class="lesson-subtitle">Cài đặt và khởi tạo cluster K8S từ đầu bằng kubeadm trên Ubuntu 24.04</p>
+          <div class="lesson-info-grid">
+            <div class="info-chip"><span class="chip-label">Tool</span><span class="chip-val">kubeadm</span></div>
+            <div class="info-chip"><span class="chip-label">Runtime</span><span class="chip-val">containerd v2.2.2</span></div>
+            <div class="info-chip"><span class="chip-label">K8S</span><span class="chip-val">v1.35</span></div>
+            <div class="info-chip"><span class="chip-label">Network</span><span class="chip-val">Calico v3.30.3</span></div>
           </div>
         </div>
-      </div>
 
-      <div class="content-block">
-        <h3><span class="icon">📦</span> Cài đặt containerd</h3>
-        <div class="code-block">
-          <div class="code-header"><span class="code-lang">bash — all nodes</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
-          <div class="code-body"><pre><span class="cmd">apt-get update && apt-get install -y containerd</span>
-<span class="cmd">mkdir -p /etc/containerd</span>
-<span class="cmd">containerd config default > /etc/containerd/config.toml</span>
+        <!-- DEPLOY MASTER -->
+        <section class="lesson-section">
+          <h2>Phần 1: Triển khai Master Node</h2>
 
-<span class="cm"># Cấu hình systemd cgroup driver (quan trọng!)</span>
-<span class="cmd">sed -i 's/SystemdCgroup = false/SystemdCgroup = true/' \
-  /etc/containerd/config.toml</span>
+          <h3>1.1 Chuẩn bị Linux</h3>
 
-<span class="cmd">systemctl restart containerd && systemctl enable containerd</span></pre></div>
-        </div>
-        <div class="info-box warn">
-          <span class="icon">⚠️</span>
-          <div>Phải dùng <strong>systemd cgroup driver</strong>. Nếu kubelet và containerd dùng cgroup driver khác nhau, cluster sẽ không hoạt động đúng.</div>
-        </div>
-      </div>
-
-      <div class="content-block">
-        <h3><span class="icon">🔧</span> Cài kubeadm, kubelet, kubectl</h3>
-        <div class="code-block">
-          <div class="code-header"><span class="code-lang">bash — all nodes</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
-          <div class="code-body"><pre><span class="cmd">apt-get install -y apt-transport-https ca-certificates curl gpg</span>
-
-<span class="cmd">curl -fsSL https://pkgs.k8s.io/core:/stable:/v1.35/deb/Release.key | \
-  gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg</span>
-
-<span class="cmd">echo 'deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] \
-  https://pkgs.k8s.io/core:/stable:/v1.35/deb/ /' | \
-  tee /etc/apt/sources.list.d/kubernetes.list</span>
-
-<span class="cmd">apt-get update</span>
-<span class="cmd">apt-get install -y kubelet kubeadm kubectl</span>
-<span class="cmd">apt-mark hold kubelet kubeadm kubectl</span></pre></div>
-        </div>
-      </div>
-
-      <div class="content-block">
-        <h3><span class="icon">🚀</span> Bootstrap Control Plane</h3>
-        <p>Chạy trên <strong>master-01</strong>:</p>
-        <div class="code-block">
-          <div class="code-header"><span class="code-lang">bash — master-01</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
-          <div class="code-body"><pre><span class="cm"># Xem trước (dry-run) trước khi thay đổi hệ thống</span>
-<span class="cmd">kubeadm init \
-  --pod-network-cidr=192.168.0.0/16 \
-  --apiserver-cert-extra-sans=master-01,192.168.1.10 \
-  --control-plane-endpoint=master-01 \
-  --kubernetes-version=v1.35.0 \
-  --dry-run</span>
-
-<span class="cm"># Sau khi kiểm tra OK, chạy thật</span>
-<span class="cmd">kubeadm init \
-  --pod-network-cidr=192.168.0.0/16 \
-  --apiserver-cert-extra-sans=master-01,192.168.1.10 \
-  --control-plane-endpoint=master-01 \
-  --kubernetes-version=v1.35.0</span></pre></div>
-        </div>
-        <div class="code-block">
-          <div class="code-header"><span class="code-lang">bash — setup kubeconfig</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
-          <div class="code-body"><pre><span class="cmd">mkdir -p $HOME/.kube</span>
-<span class="cmd">cp /etc/kubernetes/admin.conf $HOME/.kube/config</span>
-<span class="cmd">chown $(id -u):$(id -g) $HOME/.kube/config</span></pre></div>
-        </div>
-      </div>
-
-      <div class="content-block">
-        <h3><span class="icon">🌐</span> Cài Calico CNI</h3>
-        <div class="code-block">
-          <div class="code-header"><span class="code-lang">bash — master-01</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
-          <div class="code-body"><pre><span class="cmd">kubectl apply -f \
-  https://raw.githubusercontent.com/projectcalico/calico/v3.28.0/manifests/calico.yaml</span>
-
-<span class="cm"># Chờ nodes Ready</span>
-<span class="cmd">kubectl get nodes -w</span></pre></div>
-        </div>
-        <div class="info-box tip">
-          <span class="icon">💡</span>
-          <div>Node sẽ ở trạng thái <code>NotReady</code> cho đến khi CNI plugin được cài. Đây là hành vi bình thường — kubelet chờ CNI để cấp IP cho Pod.</div>
-        </div>
-      </div>
-
-      <div class="content-block">
-        <h3><span class="icon">➕</span> Join Worker Nodes</h3>
-        <div class="code-block">
-          <div class="code-header"><span class="code-lang">bash — worker nodes</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
-          <div class="code-body"><pre><span class="cm"># Lệnh này được in ra sau kubeadm init trên master</span>
-<span class="cm"># Ví dụ:</span>
-<span class="cmd">kubeadm join master-01:6443 \
-  --token &lt;token&gt; \
-  --discovery-token-ca-cert-hash sha256:&lt;hash&gt;</span>
-
-<span class="cm"># Kiểm tra từ master-01</span>
-<span class="cmd">kubectl get nodes</span></pre></div>
-        </div>
-      </div>
-    </div>
-
-    <!-- PANEL 2: Workloads -->
-    <div class="lesson-panel" id="panel-2">
-      <div class="content-block">
-        <h3><span class="icon">🎯</span> Mục tiêu buổi học</h3>
-        <p>Hiểu các workload resource chính của Kubernetes và khi nào dùng loại nào. Thực hành tạo, scale, rollout và kiểm tra từng loại.</p>
-      </div>
-
-      <div class="content-block">
-        <h3><span class="icon">🧠</span> Desired State và Actual State</h3>
-        <p>Tư duy quan trọng nhất trong Kubernetes: bạn <em>khai báo</em> trạng thái mong muốn, controller tự đưa cluster về đúng trạng thái đó.</p>
-        <div class="arch-diagram">
-          <pre>
-<span class="hl">Desired State</span>  →  "Tôi muốn 3 Pod nginx"
-<span class="hl2">Actual State</span>   →  "Hiện có 2 Pod đang chạy"
-<span class="hl3">Controller</span>     →  Tạo thêm 1 Pod để khớp desired state
-
-Nếu một Pod chết:
-<span class="hl2">Actual State</span>   →  "Chỉ còn 2 Pod"
-<span class="hl3">ReplicaSet</span>     →  Tự tạo lại Pod thứ 3
-</pre>
-        </div>
-      </div>
-
-      <div class="content-block">
-        <h3><span class="icon">🏷️</span> Label và Selector</h3>
-        <p>Label là key-value gắn vào object. Selector dùng để lọc object theo label. Đây là cơ chế kết nối giữa các resource trong Kubernetes.</p>
-        <div class="code-block">
-          <div class="code-header"><span class="code-lang">yaml</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
-          <div class="code-body"><pre><span class="cm"># Pod có label app=nginx, env=production</span>
-<span class="kw">metadata</span>:
-  <span class="kw">labels</span>:
-    <span class="kw">app</span>: <span class="str">nginx</span>
-    <span class="kw">env</span>: <span class="str">production</span>
-
-<span class="cm"># Deployment selector: chọn tất cả Pod có app=nginx</span>
-<span class="kw">selector</span>:
-  <span class="kw">matchLabels</span>:
-    <span class="kw">app</span>: <span class="str">nginx</span></pre></div>
-        </div>
-      </div>
-
-      <div class="content-block">
-        <h3><span class="icon">📊</span> So sánh các Workload Resource</h3>
-        <table class="k8s-table">
-          <thead>
-            <tr><th>Resource</th><th>Dùng khi nào</th><th>Tự restart?</th></tr>
-          </thead>
-          <tbody>
-            <tr><td>Pod</td><td>Test, debug đơn giản</td><td>❌</td></tr>
-            <tr><td>ReplicaSet</td><td>Duy trì N bản sao Pod (thường dùng qua Deployment)</td><td>✅</td></tr>
-            <tr><td>Deployment</td><td>Ứng dụng stateless, cần rolling update</td><td>✅</td></tr>
-            <tr><td>DaemonSet</td><td>Chạy 1 Pod trên mỗi node (logging, monitoring)</td><td>✅</td></tr>
-            <tr><td>StatefulSet</td><td>Ứng dụng cần định danh ổn định (DB, Kafka)</td><td>✅</td></tr>
-            <tr><td>Job</td><td>Tác vụ chạy một lần đến khi hoàn tất</td><td>On failure</td></tr>
-            <tr><td>CronJob</td><td>Tác vụ chạy theo lịch (backup, report)</td><td>On schedule</td></tr>
-          </tbody>
-        </table>
-      </div>
-
-      <div class="content-block">
-        <h3><span class="icon">🚢</span> Deployment manifest</h3>
-        <div class="code-block">
-          <div class="code-header"><span class="code-lang">yaml</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
-          <div class="code-body"><pre><span class="kw">apiVersion</span>: apps/v1
-<span class="kw">kind</span>: Deployment
-<span class="kw">metadata</span>:
-  <span class="kw">name</span>: <span class="str">nginx-deployment</span>
-  <span class="kw">namespace</span>: <span class="str">default</span>
-<span class="kw">spec</span>:
-  <span class="kw">replicas</span>: 3
-  <span class="kw">selector</span>:
-    <span class="kw">matchLabels</span>:
-      <span class="kw">app</span>: <span class="str">nginx</span>
-  <span class="kw">template</span>:
-    <span class="kw">metadata</span>:
-      <span class="kw">labels</span>:
-        <span class="kw">app</span>: <span class="str">nginx</span>
-    <span class="kw">spec</span>:
-      <span class="kw">containers</span>:
-        - <span class="kw">name</span>: <span class="str">nginx</span>
-          <span class="kw">image</span>: <span class="str">nginx:1.27</span>
-          <span class="kw">resources</span>:
-            <span class="kw">requests</span>:
-              <span class="kw">cpu</span>: <span class="str">"100m"</span>
-              <span class="kw">memory</span>: <span class="str">"128Mi"</span>
-            <span class="kw">limits</span>:
-              <span class="kw">cpu</span>: <span class="str">"500m"</span>
-              <span class="kw">memory</span>: <span class="str">"256Mi"</span></pre></div>
-        </div>
-        <div class="code-block">
-          <div class="code-header"><span class="code-lang">bash</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
-          <div class="code-body"><pre><span class="cmd">kubectl apply -f nginx-deployment.yaml</span>
-<span class="cmd">kubectl get deployment nginx-deployment</span>
-<span class="cmd">kubectl get pods -l app=nginx</span>
-<span class="cmd">kubectl scale deployment nginx-deployment --replicas=5</span>
-<span class="cmd">kubectl rollout status deployment nginx-deployment</span></pre></div>
-        </div>
-      </div>
-
-      <div class="content-block">
-        <h3><span class="icon">🔁</span> DaemonSet — Chạy trên mọi node</h3>
-        <p>DaemonSet đảm bảo mỗi node (hoặc nhóm node) chạy đúng 1 Pod. Thường dùng cho log collector, monitoring agent, network plugin.</p>
-        <div class="code-block">
-          <div class="code-header"><span class="code-lang">yaml</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
-          <div class="code-body"><pre><span class="kw">apiVersion</span>: apps/v1
-<span class="kw">kind</span>: DaemonSet
-<span class="kw">metadata</span>:
-  <span class="kw">name</span>: <span class="str">node-logger</span>
-<span class="kw">spec</span>:
-  <span class="kw">selector</span>:
-    <span class="kw">matchLabels</span>:
-      <span class="kw">app</span>: <span class="str">node-logger</span>
-  <span class="kw">template</span>:
-    <span class="kw">metadata</span>:
-      <span class="kw">labels</span>:
-        <span class="kw">app</span>: <span class="str">node-logger</span>
-    <span class="kw">spec</span>:
-      <span class="kw">containers</span>:
-        - <span class="kw">name</span>: <span class="str">logger</span>
-          <span class="kw">image</span>: <span class="str">busybox:1.36</span></pre></div>
-        </div>
-      </div>
-
-      <div class="content-block">
-        <h3><span class="icon">💼</span> StatefulSet — Định danh ổn định</h3>
-        <p>StatefulSet cần khi ứng dụng cần: tên Pod ổn định (pod-0, pod-1, pod-2), storage riêng cho từng Pod, khởi động theo thứ tự.</p>
-        <div class="info-box info">
-          <span class="icon">ℹ️</span>
-          <div>StatefulSet thường dùng với <strong>Headless Service</strong> để các Pod có thể resolve DNS lẫn nhau: <code>pod-0.my-service.default.svc.cluster.local</code></div>
-        </div>
-      </div>
-    </div>
-
-    <!-- PANEL 3: Networking -->
-    <div class="lesson-panel" id="panel-3">
-      <div class="content-block">
-        <h3><span class="icon">🎯</span> Mục tiêu buổi học</h3>
-        <p>Hiểu Kubernetes networking model, tại sao Pod IP không đủ ổn định, và cách Service giải quyết bài toán service discovery.</p>
-        <div class="info-box warn">
-          <span class="icon">⚠️</span>
-          <div>Câu hỏi trọng tâm: <em>Khi Pod có thể bị xóa, tạo mới và đổi IP liên tục — làm sao ứng dụng tìm thấy nhau?</em> → <strong>Service</strong>.</div>
-        </div>
-      </div>
-
-      <div class="content-block">
-        <h3><span class="icon">🌐</span> Ba lớp mạng trong Kubernetes</h3>
-        <div class="component-grid">
-          <div class="component-card" style="--cc-color:#00d4ff">
-            <div class="cc-badge" style="background:rgba(0,212,255,0.1);color:#00d4ff">Layer 1</div>
-            <div class="cc-name">Node IP</div>
-            <div class="cc-desc">IP thật của VM/server. Ổn định, có thể truy cập từ ngoài. Ví dụ: 192.168.1.10</div>
+          <p class="code-desc">Cập nhật danh sách package từ repository để đảm bảo cài đặt được phiên bản mới nhất:</p>
+          <div class="code-block">
+            <div class="code-header"><span class="code-lang">bash</span><button class="copy-btn" data-code="apt update -y">Sao chép</button></div>
+            <pre><code>apt update -y</code></pre>
           </div>
-          <div class="component-card" style="--cc-color:#7b61ff">
-            <div class="cc-badge" style="background:rgba(123,97,255,0.1);color:#7b61ff">Layer 2</div>
-            <div class="cc-name">Pod IP</div>
-            <div class="cc-desc">IP do CNI cấp, nằm trong Pod CIDR (192.168.x.x). Thay đổi khi Pod restart. KHÔNG ổn định.</div>
+
+          <p class="code-desc">Tắt swap và gỡ cấu hình swap khỏi <code>/etc/fstab</code>. Kubernetes yêu cầu swap phải được tắt để quản lý bộ nhớ chính xác — nếu swap còn bật, kubelet sẽ từ chối khởi động:</p>
+          <div class="code-block">
+            <div class="code-header"><span class="code-lang">bash</span><button class="copy-btn" data-code="swapoff -a
+# Sau đó mở file và xóa dòng có chứa 'swap'
+vi /etc/fstab">Sao chép</button></div>
+            <pre><code>swapoff -a
+# Sau đó mở file và xóa dòng có chứa 'swap'
+vi /etc/fstab</code></pre>
           </div>
-          <div class="component-card" style="--cc-color:#00ff88">
-            <div class="cc-badge" style="background:rgba(0,255,136,0.1);color:#00ff88">Layer 3</div>
-            <div class="cc-name">Service (ClusterIP)</div>
-            <div class="cc-desc">IP ảo ổn định. Tồn tại suốt vòng đời Service. Đây là địa chỉ để ứng dụng phụ thuộc.</div>
+
+          <h3>1.2 Cài đặt Container Runtime (containerd)</h3>
+
+          <p class="code-desc">Tải các kernel module cần thiết và cấu hình để tự động load khi khởi động. Module <strong>overlay</strong> hỗ trợ hệ thống file OverlayFS cần thiết cho containerd. Module <strong>br_netfilter</strong> cho phép kiểm soát lưu lượng mạng giữa các container qua Linux bridge:</p>
+          <div class="code-block">
+            <div class="code-header"><span class="code-lang">bash</span><button class="copy-btn" data-code='printf "overlay\nbr_netfilter\n" >> /etc/modules-load.d/containerd.conf
+modprobe overlay
+modprobe br_netfilter'>Sao chép</button></div>
+            <pre><code>printf "overlay\nbr_netfilter\n" &gt;&gt; /etc/modules-load.d/containerd.conf
+modprobe overlay
+modprobe br_netfilter</code></pre>
           </div>
+
+          <p class="code-desc">Cấu hình các thông số mạng hệ thống cần thiết cho Kubernetes. <strong>bridge-nf-call-iptables</strong> cho phép iptables kiểm soát traffic qua bridge. <strong>ip_forward</strong> cho phép chuyển tiếp gói tin IP giữa các mạng — bắt buộc để Pod trên các node khác nhau liên lạc được với nhau:</p>
+          <div class="code-block">
+            <div class="code-header"><span class="code-lang">bash</span><button class="copy-btn" data-code='printf "net.bridge.bridge-nf-call-iptables = 1\nnet.ipv4.ip_forward = 1\nnet.bridge.bridge-nf-call-ip6tables = 1\n" >> /etc/sysctl.d/99-kubernetes-cri.conf
+sysctl --system'>Sao chép</button></div>
+            <pre><code>printf "net.bridge.bridge-nf-call-iptables = 1\nnet.ipv4.ip_forward = 1\nnet.bridge.bridge-nf-call-ip6tables = 1\n" &gt;&gt; /etc/sysctl.d/99-kubernetes-cri.conf
+sysctl --system</code></pre>
+          </div>
+
+          <p class="code-desc">Tải và cài đặt containerd v2.2.2 từ GitHub. Sau đó tải file service unit cho systemd và kích hoạt service để containerd tự khởi động cùng hệ thống:</p>
+          <div class="code-block">
+            <div class="code-header"><span class="code-lang">bash</span><button class="copy-btn" data-code="wget https://github.com/containerd/containerd/releases/download/v2.2.2/containerd-2.2.2-linux-amd64.tar.gz -P /tmp/
+tar Cxzvf /usr/local /tmp/containerd-2.2.2-linux-amd64.tar.gz
+mkdir -p /usr/local/lib/systemd/system/
+wget https://raw.githubusercontent.com/containerd/containerd/main/containerd.service -P /usr/local/lib/systemd/system/
+systemctl daemon-reload
+systemctl restart containerd
+systemctl enable containerd">Sao chép</button></div>
+            <pre><code>wget https://github.com/containerd/containerd/releases/download/v2.2.2/containerd-2.2.2-linux-amd64.tar.gz -P /tmp/
+tar Cxzvf /usr/local /tmp/containerd-2.2.2-linux-amd64.tar.gz
+mkdir -p /usr/local/lib/systemd/system/
+wget https://raw.githubusercontent.com/containerd/containerd/main/containerd.service -P /usr/local/lib/systemd/system/
+systemctl daemon-reload
+systemctl restart containerd
+systemctl enable containerd</code></pre>
+          </div>
+
+          <p class="code-desc">Cài đặt <strong>runc</strong> v1.4.2 — đây là low-level container runtime thực sự tạo và chạy container theo chuẩn OCI. containerd sử dụng runc phía sau để thực thi container:</p>
+          <div class="code-block">
+            <div class="code-header"><span class="code-lang">bash</span><button class="copy-btn" data-code="wget https://github.com/opencontainers/runc/releases/download/v1.4.2/runc.amd64 -P /tmp/
+install -m 755 /tmp/runc.amd64 /usr/local/sbin/runc">Sao chép</button></div>
+            <pre><code>wget https://github.com/opencontainers/runc/releases/download/v1.4.2/runc.amd64 -P /tmp/
+install -m 755 /tmp/runc.amd64 /usr/local/sbin/runc</code></pre>
+          </div>
+
+          <p class="code-desc">Cài đặt các CNI plugin v1.9.1 vào thư mục <code>/opt/cni/bin</code>. Các plugin này cung cấp chức năng mạng cơ bản cho Kubernetes: cấp phát địa chỉ IP cho Pod, cấu hình routing, và thiết lập iptables rules:</p>
+          <div class="code-block">
+            <div class="code-header"><span class="code-lang">bash</span><button class="copy-btn" data-code="wget https://github.com/containernetworking/plugins/releases/download/v1.9.1/cni-plugins-linux-amd64-v1.9.1.tgz -P /tmp/
+mkdir -p /opt/cni/bin
+tar Cxzvf /opt/cni/bin /tmp/cni-plugins-linux-amd64-v1.9.1.tgz">Sao chép</button></div>
+            <pre><code>wget https://github.com/containernetworking/plugins/releases/download/v1.9.1/cni-plugins-linux-amd64-v1.9.1.tgz -P /tmp/
+mkdir -p /opt/cni/bin
+tar Cxzvf /opt/cni/bin /tmp/cni-plugins-linux-amd64-v1.9.1.tgz</code></pre>
+          </div>
+
+          <p class="code-desc">Tạo file cấu hình mặc định cho containerd, sau đó mở bằng vi để chỉnh sửa. Tìm dòng <code>SystemdCgroup</code> (khoảng dòng 109) và đổi giá trị thành <code>true</code>. Điều này để containerd sử dụng cgroup của systemd thay vì cgroupfs, giúp quản lý tài nguyên đồng nhất với Kubernetes:</p>
+          <div class="code-block">
+            <div class="code-header"><span class="code-lang">bash</span><button class="copy-btn" data-code="mkdir -p /etc/containerd
+containerd config default | tee /etc/containerd/config.toml
+# Mở file và đổi SystemdCgroup = false -> SystemdCgroup = true (dòng ~109)
+vi /etc/containerd/config.toml">Sao chép</button></div>
+            <pre><code>mkdir -p /etc/containerd
+containerd config default | tee /etc/containerd/config.toml
+# Mở file và đổi SystemdCgroup = false -> SystemdCgroup = true (dòng ~109)
+vi /etc/containerd/config.toml</code></pre>
+          </div>
+
+          <h3>1.3 Cài đặt Kubernetes Components</h3>
+
+          <p class="code-desc">Cài đặt các package cần thiết và thêm GPG key để xác thực Kubernetes repository. Việc thêm GPG key đảm bảo các package được ký bởi Kubernetes project chính thức:</p>
+          <div class="code-block">
+            <div class="code-header"><span class="code-lang">bash</span><button class="copy-btn" data-code="sudo apt update
+sudo apt install -y apt-transport-https ca-certificates curl gpg
+curl -fsSL https://pkgs.k8s.io/core:/stable:/v1.35/deb/Release.key | sudo gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg">Sao chép</button></div>
+            <pre><code>sudo apt update
+sudo apt install -y apt-transport-https ca-certificates curl gpg
+curl -fsSL https://pkgs.k8s.io/core:/stable:/v1.35/deb/Release.key | sudo gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg</code></pre>
+          </div>
+
+          <p class="code-desc">Thêm Kubernetes v1.35 package repository vào apt sources. Repository này cung cấp các package <code>kubelet</code>, <code>kubeadm</code>, <code>kubectl</code>:</p>
+          <div class="code-block">
+            <div class="code-header"><span class="code-lang">bash</span><button class="copy-btn" data-code="echo 'deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v1.35/deb/ /' | sudo tee /etc/apt/sources.list.d/kubernetes.list">Sao chép</button></div>
+            <pre><code>echo 'deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v1.35/deb/ /' | sudo tee /etc/apt/sources.list.d/kubernetes.list</code></pre>
+          </div>
+
+          <p class="code-desc">Cập nhật repository và cài đặt ba thành phần Kubernetes. <strong>kubelet</strong>: node agent. <strong>kubeadm</strong>: tool khởi tạo cluster. <strong>kubectl</strong>: CLI để quản lý cluster. Lệnh <code>apt-mark hold</code> ngăn apt tự động nâng cấp các package này — giúp giữ version ổn định cho cluster:</p>
+          <div class="code-block">
+            <div class="code-header"><span class="code-lang">bash</span><button class="copy-btn" data-code="apt update -y
+apt install -y kubelet kubeadm kubectl
+apt-mark hold kubelet kubeadm kubectl
+systemctl enable --now kubelet
+reboot">Sao chép</button></div>
+            <pre><code>apt update -y
+apt install -y kubelet kubeadm kubectl
+apt-mark hold kubelet kubeadm kubectl
+systemctl enable --now kubelet
+reboot</code></pre>
+          </div>
+
+          <h3>1.4 Bootstrap Master Node</h3>
+
+          <p class="code-desc">Khởi tạo control plane với kubeadm. Flag <code>--pod-network-cidr 192.168.0.0/16</code> định nghĩa dải IP sẽ dùng cho Pod — phải khớp với cấu hình của CNI plugin Calico. Sau khi chạy xong, lệnh này sẽ in ra join command để thêm worker node:</p>
+          <div class="code-block">
+            <div class="code-header"><span class="code-lang">bash</span><button class="copy-btn" data-code="kubeadm init --pod-network-cidr 192.168.0.0/16">Sao chép</button></div>
+            <pre><code>kubeadm init --pod-network-cidr 192.168.0.0/16</code></pre>
+          </div>
+
+          <p class="code-desc">Cấu hình kubeconfig cho user hiện tại để có thể dùng kubectl. File <code>admin.conf</code> chứa thông tin kết nối và credential admin — copy vào <code>~/.kube/config</code> để kubectl tự động sử dụng:</p>
+          <div class="code-block">
+            <div class="code-header"><span class="code-lang">bash</span><button class="copy-btn" data-code="mkdir -p $HOME/.kube
+cp -i /etc/kubernetes/admin.conf $HOME/.kube/config
+sudo chown $(id -u):$(id -g) $HOME/.kube/config">Sao chép</button></div>
+            <pre><code>mkdir -p $HOME/.kube
+cp -i /etc/kubernetes/admin.conf $HOME/.kube/config
+sudo chown $(id -u):$(id -g) $HOME/.kube/config</code></pre>
+          </div>
+
+          <p class="code-desc">Cài đặt Calico CNI plugin để cung cấp network cho Pod. Lệnh đầu tạo Tigera Operator (controller quản lý Calico), lệnh sau áp dụng cấu hình mạng cho cluster. <code>sleep 10</code> đảm bảo operator khởi động xong trước khi áp dụng custom resources:</p>
+          <div class="code-block">
+            <div class="code-header"><span class="code-lang">bash</span><button class="copy-btn" data-code="kubectl apply -f https://raw.githubusercontent.com/projectcalico/calico/v3.30.3/manifests/tigera-operator.yaml
+sleep 10
+kubectl apply -f https://raw.githubusercontent.com/projectcalico/calico/v3.30.3/manifests/custom-resources.yaml">Sao chép</button></div>
+            <pre><code>kubectl apply -f https://raw.githubusercontent.com/projectcalico/calico/v3.30.3/manifests/tigera-operator.yaml
+sleep 10
+kubectl apply -f https://raw.githubusercontent.com/projectcalico/calico/v3.30.3/manifests/custom-resources.yaml</code></pre>
+          </div>
+
+          <h3>1.5 Lệnh kiểm tra sau khi cài đặt Master</h3>
+
+          <p class="code-desc">Tập hợp các lệnh kiểm tra để xác nhận master node đã hoạt động bình thường. Chạy tuần tự để xác nhận node ở trạng thái <code>Ready</code>, các component healthy, và tất cả system pods đang chạy:</p>
+          <div class="code-block">
+            <div class="code-header"><span class="code-lang">bash</span><button class="copy-btn" data-code="# Xem thông tin node
+kubectl get nodes -o wide
+
+# Kiểm tra sức khỏe control plane components
+kubectl get componentstatuses
+
+# Kiểm tra trạng thái các system pod
+kubectl get pods --all-namespaces -o wide
+
+# Lấy join command để thêm worker node (chạy lệnh này trên master)
+kubeadm token create --print-join-command">Sao chép</button></div>
+            <pre><code># Xem thông tin node
+kubectl get nodes -o wide
+
+# Kiểm tra sức khỏe control plane components
+kubectl get componentstatuses
+
+# Kiểm tra trạng thái các system pod
+kubectl get pods --all-namespaces -o wide
+
+# Lấy join command để thêm worker node (chạy lệnh này trên master)
+kubeadm token create --print-join-command</code></pre>
+          </div>
+        </section>
+
+        <!-- DEPLOY NODE -->
+        <section class="lesson-section">
+          <h2>Phần 2: Triển khai Worker Node</h2>
+          <p>Các bước dưới đây được thực hiện trên <strong>mỗi worker node</strong> (<code>worker-01</code>, <code>worker-02</code>). Quy trình tương tự master nhưng không cần bootstrap cluster.</p>
+
+          <h3>2.1 Chuẩn bị Linux</h3>
+          <p class="code-desc">Cập nhật và nâng cấp toàn bộ package trên worker node. Sau đó tắt swap ngay lập tức — tương tự như master, đây là yêu cầu bắt buộc của Kubernetes:</p>
+          <div class="code-block">
+            <div class="code-header"><span class="code-lang">bash</span><button class="copy-btn" data-code="apt update -y
+apt upgrade -y
+swapoff -a">Sao chép</button></div>
+            <pre><code>apt update -y
+apt upgrade -y
+swapoff -a</code></pre>
+          </div>
+
+          <h3>2.2 Cài đặt Container Runtime</h3>
+          <p class="code-desc">Load kernel modules và cấu hình network kernel parameters — giống hệt các bước trên master node. Các thiết lập này cần thiết trên <strong>mọi node</strong> trong cluster:</p>
+          <div class="code-block">
+            <div class="code-header"><span class="code-lang">bash</span><button class="copy-btn" data-code='printf "overlay\nbr_netfilter\n" >> /etc/modules-load.d/containerd.conf
+modprobe overlay
+modprobe br_netfilter
+printf "net.bridge.bridge-nf-call-iptables = 1\nnet.ipv4.ip_forward = 1\nnet.bridge.bridge-nf-call-ip6tables = 1\n" >> /etc/sysctl.d/99-kubernetes-cri.conf
+sysctl --system'>Sao chép</button></div>
+            <pre><code>printf "overlay\nbr_netfilter\n" &gt;&gt; /etc/modules-load.d/containerd.conf
+modprobe overlay
+modprobe br_netfilter
+printf "net.bridge.bridge-nf-call-iptables = 1\nnet.ipv4.ip_forward = 1\nnet.bridge.bridge-nf-call-ip6tables = 1\n" &gt;&gt; /etc/sysctl.d/99-kubernetes-cri.conf
+sysctl --system</code></pre>
+          </div>
+
+          <p class="code-desc">Cài đặt containerd, runc và CNI plugins cho worker node. Lưu ý worker node dùng containerd v1.7.13 (có thể khác với master). Sau đó cấu hình <code>SystemdCgroup = true</code> trong config.toml tại dòng <strong>~137</strong>:</p>
+          <div class="code-block">
+            <div class="code-header"><span class="code-lang">bash</span><button class="copy-btn" data-code="# Cài containerd
+wget https://github.com/containerd/containerd/releases/download/v1.7.13/containerd-1.7.13-linux-amd64.tar.gz -P /tmp/
+tar Cxzvf /usr/local /tmp/containerd-1.7.13-linux-amd64.tar.gz
+wget https://raw.githubusercontent.com/containerd/containerd/main/containerd.service -P /etc/systemd/system/
+systemctl daemon-reload
+systemctl enable --now containerd
+
+# Cài runc
+wget https://github.com/opencontainers/runc/releases/download/v1.1.12/runc.amd64 -P /tmp/
+install -m 755 /tmp/runc.amd64 /usr/local/sbin/runc
+
+# Cài CNI plugins
+wget https://github.com/containernetworking/plugins/releases/download/v1.4.0/cni-plugins-linux-amd64-v1.4.0.tgz -P /tmp/
+mkdir -p /opt/cni/bin
+tar Cxzvf /opt/cni/bin /tmp/cni-plugins-linux-amd64-v1.4.0.tgz
+
+# Cấu hình containerd
+mkdir -p /etc/containerd
+containerd config default | tee /etc/containerd/config.toml
+# Sửa SystemdCgroup = true (~dòng 137)
+vi /etc/containerd/config.toml">Sao chép</button></div>
+            <pre><code># Cài containerd
+wget https://github.com/containerd/containerd/releases/download/v1.7.13/containerd-1.7.13-linux-amd64.tar.gz -P /tmp/
+tar Cxzvf /usr/local /tmp/containerd-1.7.13-linux-amd64.tar.gz
+wget https://raw.githubusercontent.com/containerd/containerd/main/containerd.service -P /etc/systemd/system/
+systemctl daemon-reload
+systemctl enable --now containerd
+
+# Cài runc
+wget https://github.com/opencontainers/runc/releases/download/v1.1.12/runc.amd64 -P /tmp/
+install -m 755 /tmp/runc.amd64 /usr/local/sbin/runc
+
+# Cài CNI plugins
+wget https://github.com/containernetworking/plugins/releases/download/v1.4.0/cni-plugins-linux-amd64-v1.4.0.tgz -P /tmp/
+mkdir -p /opt/cni/bin
+tar Cxzvf /opt/cni/bin /tmp/cni-plugins-linux-amd64-v1.4.0.tgz
+
+# Cấu hình containerd
+mkdir -p /etc/containerd
+containerd config default | tee /etc/containerd/config.toml
+# Sửa SystemdCgroup = true (~dòng 137)
+vi /etc/containerd/config.toml</code></pre>
+          </div>
+
+          <h3>2.3 Cài đặt Kubernetes Components trên Worker</h3>
+          <p class="code-desc">Thêm Kubernetes repository và cài đặt kubelet, kubeadm, kubectl cho worker node. Ở đây dùng version <strong>v1.29.1</strong> (pin cụ thể). Sau khi cài xong, reboot để áp dụng tất cả cấu hình kernel:</p>
+          <div class="code-block">
+            <div class="code-header"><span class="code-lang">bash</span><button class="copy-btn" data-code="apt-get install ca-certificates curl gnupg lsb-release apt-transport-https gpg
+sudo mkdir -m 0755 -p /etc/apt/keyrings
+curl -fsSL https://pkgs.k8s.io/core:/stable:/v1.29/deb/Release.key | sudo gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg
+echo 'deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v1.29/deb/ /' | sudo tee /etc/apt/sources.list.d/kubernetes.list
+apt update -y
+reboot">Sao chép</button></div>
+            <pre><code>apt-get install ca-certificates curl gnupg lsb-release apt-transport-https gpg
+sudo mkdir -m 0755 -p /etc/apt/keyrings
+curl -fsSL https://pkgs.k8s.io/core:/stable:/v1.29/deb/Release.key | sudo gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg
+echo 'deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v1.29/deb/ /' | sudo tee /etc/apt/sources.list.d/kubernetes.list
+apt update -y
+reboot</code></pre>
+          </div>
+
+          <p class="code-desc">Sau khi reboot, cài đặt và ghim phiên bản Kubernetes components. Pin version cụ thể giúp tránh việc worker node bị nâng cấp không đồng bộ với master:</p>
+          <div class="code-block">
+            <div class="code-header"><span class="code-lang">bash</span><button class="copy-btn" data-code="apt install -y kubelet=1.29.1-1.1 kubeadm=1.29.1-1.1 kubectl=1.29.1-1.1
+apt-mark hold kubelet kubeadm kubectl
+systemctl enable --now kubelet">Sao chép</button></div>
+            <pre><code>apt install -y kubelet=1.29.1-1.1 kubeadm=1.29.1-1.1 kubectl=1.29.1-1.1
+apt-mark hold kubelet kubeadm kubectl
+systemctl enable --now kubelet</code></pre>
+          </div>
+
+          <h3>2.4 Join Worker Node vào Cluster</h3>
+          <p class="code-desc">Chạy join command lấy được từ master node (lệnh <code>kubeadm token create --print-join-command</code>). Lệnh này sẽ kết nối worker node với API Server của master, download cluster CA, và đăng ký node vào cluster:</p>
+          <div class="code-block">
+            <div class="code-header"><span class="code-lang">bash</span><button class="copy-btn" data-code="# Lấy join command từ master:
+# kubeadm token create --print-join-command
+
+# Chạy lệnh join trên worker node (ví dụ):
+kubeadm join <MASTER_IP>:6443 --token <TOKEN> --discovery-token-ca-cert-hash sha256:<HASH>">Sao chép</button></div>
+            <pre><code># Lấy join command từ master:
+# kubeadm token create --print-join-command
+
+# Chạy lệnh join trên worker node (ví dụ):
+kubeadm join &lt;MASTER_IP&gt;:6443 --token &lt;TOKEN&gt; \
+  --discovery-token-ca-cert-hash sha256:&lt;HASH&gt;</code></pre>
+          </div>
+        </section>
+
+        <!-- DASHBOARD -->
+        <section class="lesson-section">
+          <h2>Phần 3: Triển khai Kubernetes Dashboard</h2>
+
+          <h3>3.1 Cài đặt Dashboard UI</h3>
+          <p class="code-desc">Tải manifest dashboard từ repository và apply vào cluster. Dashboard sẽ được tạo trong namespace <code>kubernetes-dashboard</code> với đầy đủ Deployment, Service và các RBAC object cần thiết:</p>
+          <div class="code-block">
+            <div class="code-header"><span class="code-lang">bash</span><button class="copy-btn" data-code="wget https://raw.githubusercontent.com/kbuor/containerization/refs/heads/main/kubernetes/manifest/dashboard.yaml
+kubectl apply -f dashboard.yaml">Sao chép</button></div>
+            <pre><code>wget https://raw.githubusercontent.com/kbuor/containerization/refs/heads/main/kubernetes/manifest/dashboard.yaml
+kubectl apply -f dashboard.yaml</code></pre>
+          </div>
+
+          <h3>3.2 Tạo SSL Certificate cho Dashboard</h3>
+          <p class="code-desc">Tạo self-signed SSL certificate bằng OpenSSL để bảo mật Dashboard. Lệnh đầu tạo private key và CSR (Certificate Signing Request). Lệnh sau tự ký certificate với thời hạn 365 ngày. Cuối cùng tạo Kubernetes secret chứa certificate này:</p>
+          <div class="code-block">
+            <div class="code-header"><span class="code-lang">bash</span><button class="copy-btn" data-code='mkdir certs && chmod -R 777 certs
+openssl req -nodes -newkey rsa:2048 -keyout certs/dashboard.key -out certs/dashboard.csr -subj "/C=/ST=/L=/O=/OU=/CN=kubernetes-dashboard"
+openssl x509 -req -sha256 -days 365 -in certs/dashboard.csr -signkey certs/dashboard.key -out certs/dashboard.crt
+kubectl create secret generic kubernetes-dashboard-certs --from-file=certs -n kubernetes-dashboard'>Sao chép</button></div>
+            <pre><code>mkdir certs &amp;&amp; chmod -R 777 certs
+openssl req -nodes -newkey rsa:2048 -keyout certs/dashboard.key -out certs/dashboard.csr \
+  -subj "/C=/ST=/L=/O=/OU=/CN=kubernetes-dashboard"
+openssl x509 -req -sha256 -days 365 -in certs/dashboard.csr -signkey certs/dashboard.key -out certs/dashboard.crt
+kubectl create secret generic kubernetes-dashboard-certs --from-file=certs -n kubernetes-dashboard</code></pre>
+          </div>
+
+          <h3>3.3 Tạo User và Lấy Token đăng nhập</h3>
+          <p class="code-desc">Tạo Service Account admin-user và ClusterRoleBinding để cấp quyền cluster-admin. Sau đó tạo token đăng nhập cho dashboard. Token này được dùng để xác thực khi truy cập web UI của Dashboard:</p>
+          <div class="code-block">
+            <div class="code-header"><span class="code-lang">bash</span><button class="copy-btn" data-code="wget https://raw.githubusercontent.com/kbuor/containerization/refs/heads/main/kubernetes/manifest/service-account.yaml
+kubectl apply -f service-account.yaml
+
+wget https://raw.githubusercontent.com/kbuor/containerization/refs/heads/main/kubernetes/manifest/cluster-role-binding.yaml
+kubectl apply -f cluster-role-binding.yaml
+
+# Lấy token để đăng nhập vào Dashboard
+kubectl -n kubernetes-dashboard create token admin-user">Sao chép</button></div>
+            <pre><code>wget https://raw.githubusercontent.com/kbuor/containerization/refs/heads/main/kubernetes/manifest/service-account.yaml
+kubectl apply -f service-account.yaml
+
+wget https://raw.githubusercontent.com/kbuor/containerization/refs/heads/main/kubernetes/manifest/cluster-role-binding.yaml
+kubectl apply -f cluster-role-binding.yaml
+
+# Lấy token để đăng nhập vào Dashboard
+kubectl -n kubernetes-dashboard create token admin-user</code></pre>
+          </div>
+
+          <p class="code-desc">(Tùy chọn) Cài đặt K9s — một TUI (Terminal UI) mạnh mẽ để quản lý Kubernetes trực tiếp trong terminal, thay thế cho việc gõ kubectl thủ công:</p>
+          <div class="code-block">
+            <div class="code-header"><span class="code-lang">bash</span><button class="copy-btn" data-code="curl -sS https://webinstall.dev/k9s | bash">Sao chép</button></div>
+            <pre><code>curl -sS https://webinstall.dev/k9s | bash</code></pre>
+          </div>
+        </section>
+
+        <!-- UPGRADE -->
+        <section class="lesson-section">
+          <h2>Phần 4: Nâng cấp Cluster</h2>
+
+          <h3>4.1 Upgrade Master Node</h3>
+
+          <p class="code-desc">Kiểm tra phiên bản hiện tại của kubeadm và kubectl trước khi nâng cấp để có cơ sở so sánh:</p>
+          <div class="code-block">
+            <div class="code-header"><span class="code-lang">bash</span><button class="copy-btn" data-code="kubeadm version -o short
+kubectl version --short">Sao chép</button></div>
+            <pre><code>kubeadm version -o short
+kubectl version --short</code></pre>
+          </div>
+
+          <p class="code-desc">Bỏ hold, nâng cấp kubeadm lên version mới, rồi hold lại. Thực hiện nâng cấp theo từng minor version một (ví dụ 1.26 → 1.27), không được bỏ qua version:</p>
+          <div class="code-block">
+            <div class="code-header"><span class="code-lang">bash</span><button class="copy-btn" data-code="apt-mark unhold kubeadm
+apt install -y kubeadm=1.27.3-00
+apt-mark hold kubeadm">Sao chép</button></div>
+            <pre><code>apt-mark unhold kubeadm
+apt install -y kubeadm=1.27.3-00
+apt-mark hold kubeadm</code></pre>
+          </div>
+
+          <p class="code-desc">Kiểm tra kế hoạch nâng cấp. Lệnh này sẽ phân tích cluster và in ra version có thể nâng cấp, các component sẽ được cập nhật, và command cần chạy để thực hiện upgrade:</p>
+          <div class="code-block">
+            <div class="code-header"><span class="code-lang">bash</span><button class="copy-btn" data-code="kubeadm upgrade plan">Sao chép</button></div>
+            <pre><code>kubeadm upgrade plan</code></pre>
+          </div>
+
+          <p class="code-desc">Thực hiện nâng cấp master và tất cả control plane components. Thay <code>&lt;plan&gt;</code> bằng version từ output của <code>kubeadm upgrade plan</code> (ví dụ: <code>v1.27.3</code>). Lệnh này sẽ nâng cấp kube-apiserver, etcd, scheduler, controller-manager:</p>
+          <div class="code-block">
+            <div class="code-header"><span class="code-lang">bash</span><button class="copy-btn" data-code="kubeadm upgrade apply v1.27.3">Sao chép</button></div>
+            <pre><code>kubeadm upgrade apply v1.27.3</code></pre>
+          </div>
+
+          <p class="code-desc">Sau khi nâng cấp control plane, tiến hành nâng cấp kubelet và kubectl trên master node. Kubelet cần restart để áp dụng version mới:</p>
+          <div class="code-block">
+            <div class="code-header"><span class="code-lang">bash</span><button class="copy-btn" data-code="# Nâng cấp kubelet
+apt-mark unhold kubelet
+apt install -y kubelet=1.27.3-00
+apt-mark hold kubelet
+
+# Nâng cấp kubectl
+apt-mark unhold kubectl
+apt install -y kubectl=1.27.3-00
+apt-mark hold kubectl">Sao chép</button></div>
+            <pre><code># Nâng cấp kubelet
+apt-mark unhold kubelet
+apt install -y kubelet=1.27.3-00
+apt-mark hold kubelet
+
+# Nâng cấp kubectl
+apt-mark unhold kubectl
+apt install -y kubectl=1.27.3-00
+apt-mark hold kubectl</code></pre>
+          </div>
+
+          <h3>4.2 Upgrade Worker Node</h3>
+
+          <p class="code-desc">Trước khi nâng cấp worker node, cần <strong>cordon</strong> node để ngăn Kubernetes schedule Pod mới vào. Sau đó <strong>drain</strong> để di chuyển tất cả Pod đang chạy sang node khác — đảm bảo workload không bị gián đoạn trong quá trình upgrade:</p>
+          <div class="code-block">
+            <div class="code-header"><span class="code-lang">bash</span><button class="copy-btn" data-code="# Chạy trên master node:
+kubectl cordon k8s-node-01
+kubectl drain k8s-node-01 --ignore-daemonsets --delete-emptydir-data">Sao chép</button></div>
+            <pre><code># Chạy trên master node:
+kubectl cordon k8s-node-01
+kubectl drain k8s-node-01 --ignore-daemonsets --delete-emptydir-data</code></pre>
+          </div>
+
+          <p class="code-desc">SSH vào worker node và nâng cấp kubelet, kubectl. Sau khi nâng cấp xong, quay lại master node và <strong>uncordon</strong> để cho phép schedule Pod trở lại node này:</p>
+          <div class="code-block">
+            <div class="code-header"><span class="code-lang">bash</span><button class="copy-btn" data-code="# Trên worker node:
+apt-mark unhold kubelet
+apt install -y kubelet=1.27.3-00
+apt-mark hold kubelet
+
+apt-mark unhold kubectl
+apt install -y kubectl=1.27.3-00
+apt-mark hold kubectl
+
+# Quay lại master node, uncordon worker:
+kubectl uncordon k8s-node-01
+
+# Kiểm tra kết quả
+kubectl get nodes -o wide">Sao chép</button></div>
+            <pre><code># Trên worker node:
+apt-mark unhold kubelet
+apt install -y kubelet=1.27.3-00
+apt-mark hold kubelet
+
+apt-mark unhold kubectl
+apt install -y kubectl=1.27.3-00
+apt-mark hold kubectl
+
+# Quay lại master node, uncordon worker:
+kubectl uncordon k8s-node-01
+
+# Kiểm tra kết quả
+kubectl get nodes -o wide</code></pre>
+          </div>
+        </section>
+      </article>
+
+      <!-- PLACEHOLDER FOR COMING SOON LESSONS -->
+      <div class="coming-soon-page hidden" id="coming-soon-page">
+        <div class="coming-soon-content">
+          <div class="coming-soon-icon">🚧</div>
+          <h2>Bài học đang được chuẩn bị</h2>
+          <p>Nội dung bài học này sẽ sớm được ra mắt. Hãy theo dõi để không bỏ lỡ!</p>
         </div>
       </div>
 
-      <div class="content-block">
-        <h3><span class="icon">🔌</span> Phân biệt các loại Port</h3>
-        <table class="k8s-table">
-          <thead>
-            <tr><th>Port</th><th>Nằm ở đâu</th><th>Ý nghĩa</th></tr>
-          </thead>
-          <tbody>
-            <tr><td>containerPort</td><td>Pod spec</td><td>Port container lắng nghe (khai báo, không bind)</td></tr>
-            <tr><td>targetPort</td><td>Service spec</td><td>Port thực tế traffic được forward đến container</td></tr>
-            <tr><td>port</td><td>Service spec</td><td>Port Service lắng nghe (ClusterIP:port)</td></tr>
-            <tr><td>nodePort</td><td>Service spec</td><td>Port trên Node IP để truy cập từ ngoài (30000–32767)</td></tr>
-          </tbody>
-        </table>
-      </div>
+    </main>
 
-      <div class="content-block">
-        <h3><span class="icon">🔵</span> ClusterIP Service</h3>
-        <p>Loại Service mặc định. Chỉ truy cập được từ trong cluster. Dùng cho internal communication giữa các microservices.</p>
-        <div class="code-block">
-          <div class="code-header"><span class="code-lang">yaml</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
-          <div class="code-body"><pre><span class="kw">apiVersion</span>: v1
-<span class="kw">kind</span>: Service
-<span class="kw">metadata</span>:
-  <span class="kw">name</span>: <span class="str">backend-clusterip</span>
-<span class="kw">spec</span>:
-  <span class="kw">type</span>: ClusterIP
-  <span class="kw">selector</span>:
-    <span class="kw">app</span>: <span class="str">backend</span>       <span class="cm"># Chọn Pod có label này</span>
-  <span class="kw">ports</span>:
-    - <span class="kw">port</span>: 80            <span class="cm"># ClusterIP:80</span>
-      <span class="kw">targetPort</span>: 8080    <span class="cm"># → container port 8080</span></pre></div>
-        </div>
-        <div class="code-block">
-          <div class="code-header"><span class="code-lang">bash — kiểm tra</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
-          <div class="code-body"><pre><span class="cmd">kubectl get service backend-clusterip</span>
-<span class="cmd">kubectl get endpointslices -l kubernetes.io/service-name=backend-clusterip</span>
-
-<span class="cm"># Kiểm tra DNS từ trong cluster</span>
-<span class="cmd">kubectl run test --image=busybox:1.36 --rm -it -- \
-  nslookup backend-clusterip.default.svc.cluster.local</span></pre></div>
-        </div>
-      </div>
-
-      <div class="content-block">
-        <h3><span class="icon">🟢</span> NodePort Service</h3>
-        <p>Mở một port trên mọi Node IP để truy cập từ bên ngoài cluster. Thích hợp cho lab và testing.</p>
-        <div class="code-block">
-          <div class="code-header"><span class="code-lang">yaml</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
-          <div class="code-body"><pre><span class="kw">apiVersion</span>: v1
-<span class="kw">kind</span>: Service
-<span class="kw">metadata</span>:
-  <span class="kw">name</span>: <span class="str">backend-nodeport</span>
-<span class="kw">spec</span>:
-  <span class="kw">type</span>: NodePort
-  <span class="kw">selector</span>:
-    <span class="kw">app</span>: <span class="str">backend</span>
-  <span class="kw">ports</span>:
-    - <span class="kw">port</span>: 80
-      <span class="kw">targetPort</span>: 8080
-      <span class="kw">nodePort</span>: 30080    <span class="cm"># Truy cập: NodeIP:30080</span></pre></div>
-        </div>
-        <div class="arch-diagram">
-          <pre>
-Từ ngoài cluster:
-<span class="hl">http://192.168.1.10:30080</span>  →  <span class="hl2">kube-proxy</span>  →  <span class="hl3">Pod:8080</span>
-<span class="hl">http://192.168.1.11:30080</span>  →  <span class="hl2">kube-proxy</span>  →  <span class="hl3">Pod:8080</span>
-
-(cả 2 node IP đều forward được)
-</pre>
-        </div>
-      </div>
-
-      <div class="content-block">
-        <h3><span class="icon">⭕</span> Headless Service</h3>
-        <p>Service không có ClusterIP (<code>clusterIP: None</code>). DNS trả về danh sách IP của từng Pod thay vì một IP ảo. Dùng với StatefulSet để các Pod resolve được lẫn nhau.</p>
-        <div class="code-block">
-          <div class="code-header"><span class="code-lang">yaml</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
-          <div class="code-body"><pre><span class="kw">apiVersion</span>: v1
-<span class="kw">kind</span>: Service
-<span class="kw">metadata</span>:
-  <span class="kw">name</span>: <span class="str">postgres-headless</span>
-<span class="kw">spec</span>:
-  <span class="kw">clusterIP</span>: None   <span class="cm"># ← Đây là Headless Service</span>
-  <span class="kw">selector</span>:
-    <span class="kw">app</span>: <span class="str">postgres</span>
-  <span class="kw">ports</span>:
-    - <span class="kw">port</span>: 5432</pre></div>
-        </div>
-        <div class="info-box tip">
-          <span class="icon">💡</span>
-          <div>Với Headless Service, DNS resolve: <code>postgres-0.postgres-headless.default.svc.cluster.local</code> → trực tiếp IP của Pod <code>postgres-0</code>.</div>
-        </div>
-      </div>
-
-      <div class="content-block">
-        <h3><span class="icon">🔍</span> Troubleshooting Service phổ biến</h3>
-        <table class="k8s-table">
-          <thead>
-            <tr><th>Triệu chứng</th><th>Nguyên nhân thường gặp</th><th>Cách kiểm tra</th></tr>
-          </thead>
-          <tbody>
-            <tr><td>Service không forward traffic</td><td>Selector sai, không khớp label Pod</td><td><code>kubectl get endpointslices</code></td></tr>
-            <tr><td>DNS không resolve</td><td>CoreDNS pod lỗi, namespace sai</td><td><code>nslookup svc.namespace.svc.cluster.local</code></td></tr>
-            <tr><td>NodePort không truy cập được</td><td>Firewall chặn, nodePort sai range</td><td><code>curl NodeIP:nodePort</code></td></tr>
-            <tr><td>targetPort sai</td><td>targetPort không khớp containerPort</td><td><code>kubectl describe service</code></td></tr>
-          </tbody>
-        </table>
-      </div>
-    </div>
-
-  </section>
-</div>
-
-<!-- QUIZ -->
-<section id="quiz">
-  <div class="section-label">// Kiểm tra kiến thức</div>
-  <h2 class="section-title">Quiz tổng hợp</h2>
-  <p class="section-sub" style="margin-bottom:2.5rem">Click vào đáp án để kiểm tra. Mỗi câu có giải thích chi tiết.</p>
-
-  <div class="quiz-block">
-    <div class="quiz-header">
-      <div class="quiz-title">🏗️ Buổi 01 — Kiến trúc</div>
-      <div class="quiz-progress" id="q-progress-0">0/5 đúng</div>
-    </div>
-
-    <div class="question-block" id="q1">
-      <div class="question-num">CÂU 01</div>
-      <div class="question-text">Trong Kubernetes, thành phần nào là cổng giao tiếp trung tâm của cluster?</div>
-      <div class="options">
-        <button class="option" onclick="answer(this,'q1','B')"><span class="option-letter">A</span> kubelet</button>
-        <button class="option" onclick="answer(this,'q1','B')"><span class="option-letter">B</span> kube-apiserver</button>
-        <button class="option" onclick="answer(this,'q1','B')"><span class="option-letter">C</span> containerd</button>
-        <button class="option" onclick="answer(this,'q1','B')"><span class="option-letter">D</span> CoreDNS</button>
-      </div>
-      <div class="explanation" id="exp-q1">kube-apiserver expose Kubernetes API và là điểm giao tiếp trung tâm giữa người dùng, công cụ quản trị và các thành phần nội bộ. Tất cả request đều đi qua đây.</div>
-    </div>
-
-    <div class="question-block" id="q2">
-      <div class="question-num">CÂU 02</div>
-      <div class="question-text">Thành phần nào lưu trạng thái của Kubernetes cluster?</div>
-      <div class="options">
-        <button class="option" onclick="answer(this,'q2','C')"><span class="option-letter">A</span> kube-scheduler</button>
-        <button class="option" onclick="answer(this,'q2','C')"><span class="option-letter">B</span> kube-proxy</button>
-        <button class="option" onclick="answer(this,'q2','C')"><span class="option-letter">C</span> etcd</button>
-        <button class="option" onclick="answer(this,'q2','C')"><span class="option-letter">D</span> CoreDNS</button>
-      </div>
-      <div class="explanation" id="exp-q2">etcd là key-value store dùng để lưu dữ liệu của Kubernetes API Server. Mất etcd = mất toàn bộ trạng thái cluster.</div>
-    </div>
-
-    <div class="question-block" id="q3">
-      <div class="question-num">CÂU 03</div>
-      <div class="question-text">Khi một Pod mới được tạo nhưng chưa được gán vào node, thành phần nào sẽ chọn node?</div>
-      <div class="options">
-        <button class="option" onclick="answer(this,'q3','A')"><span class="option-letter">A</span> kube-scheduler</button>
-        <button class="option" onclick="answer(this,'q3','A')"><span class="option-letter">B</span> kubelet</button>
-        <button class="option" onclick="answer(this,'q3','A')"><span class="option-letter">C</span> kube-proxy</button>
-        <button class="option" onclick="answer(this,'q3','A')"><span class="option-letter">D</span> containerd</button>
-      </div>
-      <div class="explanation" id="exp-q3">kube-scheduler quan sát các Pod chưa được gán node (nodeName trống) và chọn node phù hợp dựa trên tài nguyên, constraints và policies.</div>
-    </div>
-
-    <div class="question-block" id="q4">
-      <div class="question-num">CÂU 04</div>
-      <div class="question-text">Trong mô hình kubeadm, các manifest control plane thường nằm ở đâu?</div>
-      <div class="options">
-        <button class="option" onclick="answer(this,'q4','B')"><span class="option-letter">A</span> /var/lib/kubelet/config.yaml</button>
-        <button class="option" onclick="answer(this,'q4','B')"><span class="option-letter">B</span> /etc/kubernetes/manifests/</button>
-        <button class="option" onclick="answer(this,'q4','B')"><span class="option-letter">C</span> /etc/containerd/config.toml</button>
-        <button class="option" onclick="answer(this,'q4','B')"><span class="option-letter">D</span> /var/log/pods/</button>
-      </div>
-      <div class="explanation" id="exp-q4">kubeadm đặt các Static Pod manifest của control plane component trong /etc/kubernetes/manifests/. Kubelet đọc và chạy các Pod này trực tiếp.</div>
-    </div>
-
-    <div class="question-block" id="q5">
-      <div class="question-num">CÂU 05</div>
-      <div class="question-text">Pod là gì trong Kubernetes?</div>
-      <div class="options">
-        <button class="option" onclick="answer(this,'q5','C')"><span class="option-letter">A</span> Một máy ảo chạy trong Kubernetes</button>
-        <button class="option" onclick="answer(this,'q5','C')"><span class="option-letter">B</span> Một hệ điều hành tối giản</button>
-        <button class="option" onclick="answer(this,'q5','C')"><span class="option-letter">C</span> Đơn vị triển khai nhỏ nhất mà Kubernetes tạo và quản lý</button>
-        <button class="option" onclick="answer(this,'q5','C')"><span class="option-letter">D</span> Một loại network plugin</button>
-      </div>
-      <div class="explanation" id="exp-q5">Pod là đơn vị deployable nhỏ nhất trong Kubernetes. Mỗi Pod có IP riêng và có thể chứa một hoặc nhiều container chia sẻ network namespace và storage.</div>
-    </div>
+    <!-- BOTTOM NAV -->
+    <nav class="bottom-nav" id="bottomNav">
+      <button class="nav-btn" id="prevBtn" disabled>← Bài trước</button>
+      <span class="nav-indicator" id="navIndicator">1 / 14</span>
+      <button class="nav-btn" id="nextBtn">Bài tiếp →</button>
+    </nav>
   </div>
 
-  <div class="quiz-block">
-    <div class="quiz-header">
-      <div class="quiz-title">🌐 Buổi 04 — Networking & Service</div>
-      <div class="quiz-progress" id="q-progress-1">0/5 đúng</div>
-    </div>
+  <!-- COPY TOAST -->
+  <div class="copy-toast" id="copyToast">✓ Đã sao chép!</div>
 
-    <div class="question-block" id="q6">
-      <div class="question-num">CÂU 06</div>
-      <div class="question-text">Tại sao Pod IP không phải là địa chỉ ổn định để ứng dụng khác phụ thuộc lâu dài?</div>
-      <div class="options">
-        <button class="option" onclick="answer(this,'q6','B')"><span class="option-letter">A</span> Vì Pod IP nằm trong dải private, không route được</button>
-        <button class="option" onclick="answer(this,'q6','B')"><span class="option-letter">B</span> Vì Pod bị xóa và tạo lại sẽ nhận IP mới, không giữ IP cũ</button>
-        <button class="option" onclick="answer(this,'q6','B')"><span class="option-letter">C</span> Vì Pod IP chỉ valid trong 24 giờ</button>
-        <button class="option" onclick="answer(this,'q6','B')"><span class="option-letter">D</span> Vì kube-proxy không forward traffic đến Pod IP</button>
-      </div>
-      <div class="explanation" id="exp-q6">Khi Pod restart, scale hoặc rolling update, Pod mới sẽ nhận IP khác. Vì vậy ứng dụng không nên hard-code Pod IP mà phải dùng Service để có địa chỉ ổn định.</div>
-    </div>
-
-    <div class="question-block" id="q7">
-      <div class="question-num">CÂU 07</div>
-      <div class="question-text">Sự khác nhau giữa port và targetPort trong Service spec là gì?</div>
-      <div class="options">
-        <button class="option" onclick="answer(this,'q7','C')"><span class="option-letter">A</span> port là của Node, targetPort là của Service</button>
-        <button class="option" onclick="answer(this,'q7','C')"><span class="option-letter">B</span> Cả hai đều là port của container</button>
-        <button class="option" onclick="answer(this,'q7','C')"><span class="option-letter">C</span> port là Service lắng nghe, targetPort là port container nhận traffic</button>
-        <button class="option" onclick="answer(this,'q7','C')"><span class="option-letter">D</span> port là cho UDP, targetPort là cho TCP</button>
-      </div>
-      <div class="explanation" id="exp-q7">port là port Service lắng nghe (ClusterIP:port). targetPort là port thực tế traffic được forward đến container. Hai giá trị này thường khác nhau.</div>
-    </div>
-
-    <div class="question-block" id="q8">
-      <div class="question-num">CÂU 08</div>
-      <div class="question-text">Headless Service được tạo bằng cách nào?</div>
-      <div class="options">
-        <button class="option" onclick="answer(this,'q8','A')"><span class="option-letter">A</span> Đặt clusterIP: None trong spec</button>
-        <button class="option" onclick="answer(this,'q8','A')"><span class="option-letter">B</span> Đặt type: Headless</button>
-        <button class="option" onclick="answer(this,'q8','A')"><span class="option-letter">C</span> Không khai báo selector</button>
-        <button class="option" onclick="answer(this,'q8','A')"><span class="option-letter">D</span> Đặt ports: [] rỗng</button>
-      </div>
-      <div class="explanation" id="exp-q8">Headless Service được tạo bằng cách đặt clusterIP: None. DNS sẽ trả về danh sách IP của các Pod thay vì một ClusterIP ảo.</div>
-    </div>
-
-    <div class="question-block" id="q9">
-      <div class="question-num">CÂU 09</div>
-      <div class="question-text">Khi EndpointSlice của một Service rỗng, nguyên nhân thường gặp nhất là gì?</div>
-      <div class="options">
-        <button class="option" onclick="answer(this,'q9','B')"><span class="option-letter">A</span> Service type sai</button>
-        <button class="option" onclick="answer(this,'q9','B')"><span class="option-letter">B</span> Selector trong Service không khớp với label của Pod</button>
-        <button class="option" onclick="answer(this,'q9','B')"><span class="option-letter">C</span> CoreDNS bị lỗi</button>
-        <button class="option" onclick="answer(this,'q9','B')"><span class="option-letter">D</span> nodePort nằm ngoài range cho phép</button>
-      </div>
-      <div class="explanation" id="exp-q9">Khi selector không khớp label của Pod (typo, namespace sai, label chưa có), EndpointSlice sẽ rỗng và Service không forward traffic đến Pod nào.</div>
-    </div>
-
-    <div class="question-block" id="q10">
-      <div class="question-num">CÂU 10</div>
-      <div class="question-text">NodePort service có thể được truy cập từ đâu?</div>
-      <div class="options">
-        <button class="option" onclick="answer(this,'q10','C')"><span class="option-letter">A</span> Chỉ từ trong cluster</button>
-        <button class="option" onclick="answer(this,'q10','C')"><span class="option-letter">B</span> Chỉ từ master node</button>
-        <button class="option" onclick="answer(this,'q10','C')"><span class="option-letter">C</span> Từ bên ngoài cluster qua bất kỳ Node IP nào</button>
-        <button class="option" onclick="answer(this,'q10','C')"><span class="option-letter">D</span> Chỉ từ node đang chạy Pod</button>
-      </div>
-      <div class="explanation" id="exp-q10">NodePort mở một port (30000-32767) trên TẤT CẢ các node. Bạn có thể truy cập qua bất kỳ NodeIP:nodePort nào — kube-proxy sẽ forward đến đúng Pod.</div>
-    </div>
-  </div>
-</section>
-
-<!-- LAB -->
-<section id="lab">
-  <div class="section-label">// Thực hành</div>
-  <h2 class="section-title">Lab Commands nhanh</h2>
-  <p class="section-sub" style="margin-bottom:2.5rem">Các lệnh kubectl hay dùng nhất, sắp xếp theo use case.</p>
-
-  <div class="tabs-wrapper">
-    <button class="tab-btn active" onclick="switchTab(this, 'tab-basic')">🔍 Kiểm tra cluster</button>
-    <button class="tab-btn" onclick="switchTab(this, 'tab-pod')">📦 Pod</button>
-    <button class="tab-btn" onclick="switchTab(this, 'tab-deploy')">🚢 Deployment</button>
-    <button class="tab-btn" onclick="switchTab(this, 'tab-svc')">🌐 Service</button>
-    <button class="tab-btn" onclick="switchTab(this, 'tab-debug')">🐛 Debug</button>
-  </div>
-
-  <div id="tab-basic">
-    <div class="content-block">
-      <h3><span class="icon">🔍</span> Kiểm tra trạng thái cluster</h3>
-      <div class="code-block">
-        <div class="code-header"><span class="code-lang">bash</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
-        <div class="code-body"><pre><span class="cm"># Xem tất cả node và IP</span>
-<span class="cmd">kubectl get nodes -o wide</span>
-
-<span class="cm"># Xem các pod hệ thống</span>
-<span class="cmd">kubectl get pods -n kube-system</span>
-
-<span class="cm"># Xem tất cả namespace</span>
-<span class="cmd">kubectl get namespaces</span>
-
-<span class="cm"># Xem tất cả resource trong namespace default</span>
-<span class="cmd">kubectl get all -n default</span>
-
-<span class="cm"># Xem cluster info</span>
-<span class="cmd">kubectl cluster-info</span>
-
-<span class="cm"># Xem component status</span>
-<span class="cmd">kubectl get componentstatuses</span></pre></div>
-      </div>
-    </div>
-  </div>
-
-  <div id="tab-pod" style="display:none">
-    <div class="content-block">
-      <h3><span class="icon">📦</span> Quản lý Pod</h3>
-      <div class="code-block">
-        <div class="code-header"><span class="code-lang">bash</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
-        <div class="code-body"><pre><span class="cm"># Xem pod với IP và node</span>
-<span class="cmd">kubectl get pods -o wide</span>
-
-<span class="cm"># Mô tả chi tiết pod (xem Events!)</span>
-<span class="cmd">kubectl describe pod &lt;pod-name&gt;</span>
-
-<span class="cm"># Xem logs</span>
-<span class="cmd">kubectl logs &lt;pod-name&gt;</span>
-<span class="cmd">kubectl logs &lt;pod-name&gt; -f</span>  <span class="cm"># follow</span>
-
-<span class="cm"># Exec vào pod</span>
-<span class="cmd">kubectl exec -it &lt;pod-name&gt; -- bash</span>
-
-<span class="cm"># Tạo pod tạm thời để test</span>
-<span class="cmd">kubectl run test --image=busybox:1.36 --rm -it -- sh</span>
-
-<span class="cm"># Xóa pod</span>
-<span class="cmd">kubectl delete pod &lt;pod-name&gt;</span></pre></div>
-      </div>
-    </div>
-  </div>
-
-  <div id="tab-deploy" style="display:none">
-    <div class="content-block">
-      <h3><span class="icon">🚢</span> Quản lý Deployment</h3>
-      <div class="code-block">
-        <div class="code-header"><span class="code-lang">bash</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
-        <div class="code-body"><pre><span class="cm"># Tạo deployment</span>
-<span class="cmd">kubectl apply -f deployment.yaml</span>
-
-<span class="cm"># Scale replicas</span>
-<span class="cmd">kubectl scale deployment &lt;name&gt; --replicas=5</span>
-
-<span class="cm"># Update image (rolling update)</span>
-<span class="cmd">kubectl set image deployment/&lt;name&gt; nginx=nginx:1.28</span>
-
-<span class="cm"># Xem rollout status</span>
-<span class="cmd">kubectl rollout status deployment/&lt;name&gt;</span>
-
-<span class="cm"># Xem rollout history</span>
-<span class="cmd">kubectl rollout history deployment/&lt;name&gt;</span>
-
-<span class="cm"># Rollback về version trước</span>
-<span class="cmd">kubectl rollout undo deployment/&lt;name&gt;</span>
-
-<span class="cm"># Rollback về revision cụ thể</span>
-<span class="cmd">kubectl rollout undo deployment/&lt;name&gt; --to-revision=2</span></pre></div>
-      </div>
-    </div>
-  </div>
-
-  <div id="tab-svc" style="display:none">
-    <div class="content-block">
-      <h3><span class="icon">🌐</span> Quản lý Service</h3>
-      <div class="code-block">
-        <div class="code-header"><span class="code-lang">bash</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
-        <div class="code-body"><pre><span class="cm"># Xem service</span>
-<span class="cmd">kubectl get service</span>
-
-<span class="cm"># Xem endpoint slices</span>
-<span class="cmd">kubectl get endpointslices</span>
-
-<span class="cm"># Kiểm tra DNS từ trong cluster</span>
-<span class="cmd">kubectl run dns-test --image=busybox:1.36 --rm -it -- \
-  nslookup &lt;service-name&gt;.&lt;namespace&gt;.svc.cluster.local</span>
-
-<span class="cm"># Test kết nối đến service</span>
-<span class="cmd">kubectl run curl-test --image=curlimages/curl --rm -it -- \
-  curl http://&lt;service-name&gt;:&lt;port&gt;</span>
-
-<span class="cm"># Port-forward để test local</span>
-<span class="cmd">kubectl port-forward service/&lt;name&gt; 8080:80</span></pre></div>
-      </div>
-    </div>
-  </div>
-
-  <div id="tab-debug" style="display:none">
-    <div class="content-block">
-      <h3><span class="icon">🐛</span> Debug và troubleshooting</h3>
-      <div class="code-block">
-        <div class="code-header"><span class="code-lang">bash</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
-        <div class="code-body"><pre><span class="cm"># Xem events trong namespace</span>
-<span class="cmd">kubectl get events --sort-by=.lastTimestamp</span>
-
-<span class="cm"># Kiểm tra resource usage</span>
-<span class="cmd">kubectl top pods</span>
-<span class="cmd">kubectl top nodes</span>
-
-<span class="cm"># Kiểm tra node có issue</span>
-<span class="cmd">kubectl describe node &lt;node-name&gt;</span>
-
-<span class="cm"># Xem log kubelet trên node</span>
-<span class="cmd">journalctl -u kubelet -f</span>
-
-<span class="cm"># Kiểm tra container trực tiếp qua CRI</span>
-<span class="cmd">crictl ps</span>
-<span class="cmd">crictl logs &lt;container-id&gt;</span>
-
-<span class="cm"># Debug pod với ephemeral container</span>
-<span class="cmd">kubectl debug -it &lt;pod-name&gt; --image=busybox --target=&lt;container&gt;</span></pre></div>
-      </div>
-    </div>
-  </div>
-</section>
-
-<footer>
-  <div class="footer-logo">⎈ K8s Foundation</div>
-  <p class="footer-text">Kubernetes v1.35 · Ubuntu 24.04 · kubeadm · containerd · Calico</p>
-  <div class="footer-links">
-    <a href="https://v1-35.docs.kubernetes.io" target="_blank">K8s Docs v1.35</a>
-    <a href="https://projectcalico.docs.tigera.io" target="_blank">Calico Docs</a>
-    <a href="https://containerd.io/docs/" target="_blank">containerd Docs</a>
-    <a href="#overview">↑ Lên đầu</a>
-  </div>
-</footer>
-
-<script>
-  // Lesson switching
-  function switchLesson(idx) {
-    document.querySelectorAll('.lesson-panel').forEach((p, i) => {
-      p.classList.toggle('active', i === idx);
-    });
-    document.querySelectorAll('.lesson-tab').forEach((t, i) => {
-      t.classList.toggle('active', i === idx);
-    });
-    document.getElementById('lessons').scrollIntoView({ behavior: 'smooth' });
-  }
-
-  // Tab switching in lab
-  function switchTab(btn, tabId) {
-    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
-    document.querySelectorAll('[id^="tab-"]').forEach(t => t.style.display = 'none');
-    document.getElementById(tabId).style.display = 'block';
-  }
-
-  // Quiz logic
-  const quizScores = [0, 0];
-  const quizCounts = [5, 5];
-  const questionToBlock = {
-    q1: 0, q2: 0, q3: 0, q4: 0, q5: 0,
-    q6: 1, q7: 1, q8: 1, q9: 1, q10: 1
-  };
-  const answered = {};
-
-  function answer(btn, qid, correct) {
-    if (answered[qid]) return;
-    answered[qid] = true;
-
-    const block = document.getElementById(qid);
-    const options = block.querySelectorAll('.option');
-    const letters = ['A','B','C','D'];
-
-    options.forEach((opt, i) => {
-      opt.classList.add('revealed');
-      if (letters[i] === correct) {
-        opt.classList.add('correct');
-      } else if (opt === btn) {
-        opt.classList.add('wrong');
-      }
-    });
-
-    const isCorrect = btn.querySelector('.option-letter').textContent === correct;
-    document.getElementById('exp-' + qid).classList.add('show');
-
-    if (isCorrect) {
-      const blockIdx = questionToBlock[qid];
-      quizScores[blockIdx]++;
-      document.getElementById('q-progress-' + blockIdx).textContent =
-        quizScores[blockIdx] + '/' + quizCounts[blockIdx] + ' đúng';
-    }
-  }
-
-  // Copy code
-  function copyCode(btn) {
-    const pre = btn.closest('.code-block').querySelector('pre');
-    const text = pre.innerText;
-    navigator.clipboard.writeText(text).then(() => {
-      btn.textContent = '✓ copied';
-      btn.classList.add('copied');
-      setTimeout(() => {
-        btn.textContent = 'copy';
-        btn.classList.remove('copied');
-      }, 1500);
-    });
-  }
-
-  // Scroll-based nav highlight
-  window.addEventListener('scroll', () => {
-    const nav = document.querySelector('nav');
-    if (window.scrollY > 80) {
-      nav.style.boxShadow = '0 2px 20px rgba(0,0,0,0.5)';
-    } else {
-      nav.style.boxShadow = 'none';
-    }
-  });
-</script>
+  <script src="script.js"></script>
 </body>
 </html>
