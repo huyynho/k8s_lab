@@ -135,14 +135,13 @@
         <div class="lesson-hero">
           <div class="hero-badge">Bài 01</div>
           <h1 class="lesson-h1">Kiến trúc Kubernetes</h1>
-          <p class="lesson-subtitle">Hiểu toàn bộ các thành phần của một K8S cluster trước khi bắt tay thực hành</p>
+          <p class="lesson-subtitle">Hiểu cấu trúc chi tiết từng thành phần của một K8S cluster — từ Control Plane đến Worker Node, Pod, Container và các layer bên trong</p>
           <div class="lesson-info-grid">
             <div class="info-chip"><span class="chip-label">Phiên bản</span><span class="chip-val">Kubernetes v1.35</span></div>
             <div class="info-chip"><span class="chip-label">Hệ điều hành</span><span class="chip-val">Ubuntu 24.04</span></div>
             <div class="info-chip"><span class="chip-label">Mô hình lab</span><span class="chip-val">On-premise / kubeadm</span></div>
             <div class="info-chip"><span class="chip-label">Số VM</span><span class="chip-val">3 VM</span></div>
           </div>
-
           <div class="node-table-wrap">
             <table class="node-table">
               <thead><tr><th>Node</th><th>Vai trò</th><th>Mô tả</th></tr></thead>
@@ -163,72 +162,87 @@
             <li>Kubernetes là gì và vì sao cần Kubernetes</li>
             <li>Kiến trúc tổng thể của một Kubernetes cluster</li>
             <li>Sự khác nhau giữa <strong>Control Plane Node</strong> và <strong>Worker Node</strong></li>
-            <li>Vai trò của các thành phần chính: <code>kube-apiserver</code>, <code>etcd</code>, <code>kube-scheduler</code>, <code>kube-controller-manager</code>, <code>kubelet</code>, <code>kube-proxy</code>, Container Runtime, CNI Plugin, CoreDNS</li>
-            <li>Cách quan sát kiến trúc cluster bằng <code>kubectl</code>, <code>systemctl</code>, <code>crictl</code></li>
-            <li>Pod là đơn vị nhỏ nhất mà Kubernetes có thể triển khai và quản lý</li>
+            <li>Vai trò chi tiết của từng thành phần: <code>kube-apiserver</code>, <code>etcd</code>, <code>kube-scheduler</code>, <code>kube-controller-manager</code>, <code>kubelet</code>, <code>kube-proxy</code>, Container Runtime, CNI Plugin, CoreDNS</li>
+            <li>Pod là gì, cấu trúc bên trong Pod gồm những gì</li>
+            <li>Namespace, Static Pod trong mô hình kubeadm</li>
+            <li>Luồng hoạt động khi tạo một Pod đi qua từng thành phần như thế nào</li>
+            <li>kubectl giao tiếp với cluster thông qua API Server như thế nào</li>
           </ul>
         </section>
 
-        <!-- PHẦN 1 -->
+        <!-- PHẦN 1: K8S LÀ GÌ -->
         <section class="lesson-section">
           <h2>Phần 1: Kubernetes là gì?</h2>
-          <p>Kubernetes là một nền tảng mã nguồn mở dùng để triển khai, vận hành và quản lý các ứng dụng containerized. Nếu Docker/container runtime giúp chạy một container, thì Kubernetes giúp quản lý rất nhiều container chạy trên nhiều máy chủ khác nhau.</p>
-          <p>Một hệ thống thực tế thường gồm nhiều thành phần: Frontend, Backend API, Database, Cache, Message queue, Worker, Monitoring agent, Logging agent. Kubernetes giải quyết các bài toán: tự khởi động lại container khi chết, chuyển workload khi server hỏng, scale nhiều bản sao, rolling update, service discovery, giới hạn tài nguyên, expose ứng dụng ra ngoài.</p>
+          <p>Kubernetes là một nền tảng mã nguồn mở dùng để triển khai, vận hành và quản lý các ứng dụng containerized. Nếu Docker hoặc container runtime giúp chạy một container, thì Kubernetes giúp quản lý rất nhiều container chạy trên nhiều máy chủ khác nhau.</p>
+          <p>Một hệ thống thực tế thường không chỉ có một container. Ví dụ một ứng dụng web có thể gồm: Frontend, Backend API, Database, Cache, Message queue, Worker xử lý nền, Monitoring agent, Logging agent. Kubernetes giải quyết các bài toán:</p>
+          <ul class="goal-list">
+            <li>Container chết thì tự động khởi động lại</li>
+            <li>Server chết thì workload chuyển sang node khác</li>
+            <li>Cần chạy nhiều bản sao ứng dụng (scaling)</li>
+            <li>Cần rolling update không downtime</li>
+            <li>Service discovery và load balancing nội bộ</li>
+            <li>Giới hạn tài nguyên CPU/RAM cho từng ứng dụng</li>
+            <li>Expose ứng dụng ra bên ngoài cluster</li>
+          </ul>
         </section>
 
-        <!-- PHẦN 2 -->
+        <!-- PHẦN 2: CLUSTER -->
         <section class="lesson-section">
           <h2>Phần 2: Kubernetes Cluster là gì?</h2>
-          <p>Một Kubernetes cluster là tập hợp các máy chủ cùng hoạt động để chạy ứng dụng container. Cluster luôn có hai nhóm thành phần lớn:</p>
+          <p>Một Kubernetes cluster là tập hợp các máy chủ cùng hoạt động để chạy ứng dụng container. Cluster luôn có hai nhóm thành phần lớn: <strong>Control Plane</strong> và <strong>Worker Nodes</strong>.</p>
 
-          <p class="code-desc">Sơ đồ cấu trúc tổng quan của một Kubernetes Cluster với 3 VM trong lab:</p>
           <div class="code-block">
-            <div class="code-header">
-              <span class="code-lang">text</span>
-              <button class="copy-btn" data-code="Kubernetes Cluster
+            <div class="code-header"><span class="code-lang">text – Cấu trúc tổng quan cluster</span><button class="copy-btn" data-code="Kubernetes Cluster
 ├── Control Plane (master-01)
-│   ├── kube-apiserver
-│   ├── etcd
-│   ├── kube-scheduler
-│   └── kube-controller-manager
+│   ├── kube-apiserver        ← Cổng giao tiếp trung tâm
+│   ├── etcd                  ← Cơ sở dữ liệu trạng thái
+│   ├── kube-scheduler        ← Chọn node cho Pod
+│   └── kube-controller-manager ← Duy trì desired state
 │
 └── Worker Nodes
-    ├── kubelet
-    ├── kube-proxy
-    ├── container runtime (containerd)
-    └── pods">Sao chép</button>
-            </div>
+    ├── worker-01
+    │   ├── kubelet            ← Node agent
+    │   ├── kube-proxy         ← Network rules
+    │   ├── containerd         ← Container runtime
+    │   └── Pods               ← Đơn vị chạy ứng dụng
+    └── worker-02
+        ├── kubelet
+        ├── kube-proxy
+        ├── containerd
+        └── Pods">Sao chép</button></div>
             <pre><code>Kubernetes Cluster
 ├── Control Plane (master-01)
-│   ├── kube-apiserver
-│   ├── etcd
-│   ├── kube-scheduler
-│   └── kube-controller-manager
+│   ├── kube-apiserver        ← Cổng giao tiếp trung tâm
+│   ├── etcd                  ← Cơ sở dữ liệu trạng thái
+│   ├── kube-scheduler        ← Chọn node cho Pod
+│   └── kube-controller-manager ← Duy trì desired state
 │
 └── Worker Nodes
-    ├── kubelet
-    ├── kube-proxy
-    ├── container runtime (containerd)
-    └── pods</code></pre>
+    ├── worker-01
+    │   ├── kubelet            ← Node agent
+    │   ├── kube-proxy         ← Network rules
+    │   ├── containerd         ← Container runtime
+    │   └── Pods               ← Đơn vị chạy ứng dụng
+    └── worker-02
+        ├── kubelet
+        ├── kube-proxy
+        ├── containerd
+        └── Pods</code></pre>
           </div>
         </section>
 
-        <!-- PHẦN 3 -->
+        <!-- PHẦN 3: CONTROL PLANE -->
         <section class="lesson-section">
-          <h2>Phần 3: Control Plane & Các thành phần</h2>
-          <p>Control Plane là bộ não của Kubernetes cluster, không trực tiếp chạy ứng dụng business mà chịu trách nhiệm quản lý trạng thái mong muốn của toàn bộ cluster.</p>
-          <p>Trong mô hình <code>kubeadm</code>, các thành phần control plane chạy dưới dạng Static Pod, manifest được đặt tại:</p>
+          <h2>Phần 3: Control Plane — Bộ não của cluster</h2>
+          <p>Control Plane là bộ não của Kubernetes cluster. Nó không trực tiếp chạy ứng dụng business như web, API hay database. Thay vào đó, nó chịu trách nhiệm <strong>quản lý trạng thái mong muốn (desired state)</strong> của toàn bộ cluster.</p>
+          <p>Trong mô hình <code>kubeadm</code>, các thành phần Control Plane chạy dưới dạng <strong>Static Pod</strong>, manifest được đặt tại <code>/etc/kubernetes/manifests/</code> trên node master:</p>
 
-          <p class="code-desc">Cấu trúc thư mục chứa Static Pod manifest của control plane trên node <code>master-01</code>:</p>
           <div class="code-block">
-            <div class="code-header">
-              <span class="code-lang">text</span>
-              <button class="copy-btn" data-code="/etc/kubernetes/manifests/
+            <div class="code-header"><span class="code-lang">text – Static Pod manifests</span><button class="copy-btn" data-code="/etc/kubernetes/manifests/
 ├── kube-apiserver.yaml
 ├── etcd.yaml
 ├── kube-controller-manager.yaml
-└── kube-scheduler.yaml">Sao chép</button>
-            </div>
+└── kube-scheduler.yaml">Sao chép</button></div>
             <pre><code>/etc/kubernetes/manifests/
 ├── kube-apiserver.yaml
 ├── etcd.yaml
@@ -236,246 +250,786 @@
 └── kube-scheduler.yaml</code></pre>
           </div>
 
-          <div class="component-grid">
-            <div class="component-card">
-              <div class="comp-icon">🔌</div>
-              <div class="comp-name">kube-apiserver</div>
-              <div class="comp-desc">Cổng giao tiếp trung tâm. Tất cả yêu cầu gửi vào cluster đều đi qua đây. Xác thực, kiểm tra quyền, ghi trạng thái vào etcd.</div>
-            </div>
-            <div class="component-card">
-              <div class="comp-icon">🗄️</div>
-              <div class="comp-name">etcd</div>
-              <div class="comp-desc">Cơ sở dữ liệu key-value. Lưu toàn bộ trạng thái cluster: nodes, pods, namespaces, config. "Bộ nhớ dài hạn" của Kubernetes.</div>
-            </div>
-            <div class="component-card">
-              <div class="comp-icon">📅</div>
-              <div class="comp-name">kube-scheduler</div>
-              <div class="comp-desc">Quyết định Pod chạy trên node nào. Quan sát Pod chưa được gán node và chọn node phù hợp. Không chạy container.</div>
-            </div>
-            <div class="component-card">
-              <div class="comp-icon">🔄</div>
-              <div class="comp-name">controller-manager</div>
-              <div class="comp-desc">Chạy các vòng lặp điều khiển liên tục. Quan sát trạng thái thực tế và đưa về trạng thái mong muốn (desired state).</div>
-            </div>
-            <div class="component-card">
-              <div class="comp-icon">🤖</div>
-              <div class="comp-name">kubelet</div>
-              <div class="comp-desc">Node agent, chạy trên mỗi worker node. Nhận PodSpec, làm việc với container runtime để thực sự chạy container.</div>
-            </div>
-            <div class="component-card">
-              <div class="comp-icon">🌐</div>
-              <div class="comp-name">kube-proxy</div>
-              <div class="comp-desc">Chạy trên mỗi node. Quản lý network rules, cho phép giao tiếp trong và ngoài cluster qua iptables/IPVS.</div>
-            </div>
-            <div class="component-card">
-              <div class="comp-icon">📦</div>
-              <div class="comp-name">Container Runtime</div>
-              <div class="comp-desc">Thực sự chạy container. Lab này dùng containerd. kubelet giao tiếp với runtime qua CRI (Container Runtime Interface).</div>
-            </div>
-            <div class="component-card">
-              <div class="comp-icon">🔗</div>
-              <div class="comp-name">CNI Plugin</div>
-              <div class="comp-desc">Cung cấp mạng cho Pod. Lab này dùng Calico. Gán IP cho Pod, cấu hình routing giữa các Pod trên các node khác nhau.</div>
-            </div>
-            <div class="component-card">
-              <div class="comp-icon">📡</div>
-              <div class="comp-name">CoreDNS</div>
-              <div class="comp-desc">DNS nội bộ cho cluster. Cho phép Pod dùng tên service thay vì IP. Ví dụ: my-service.default.svc.cluster.local.</div>
-            </div>
-          </div>
-        </section>
+          <h3>3.1 kube-apiserver</h3>
+          <p><code>kube-apiserver</code> là cổng giao tiếp trung tâm của Kubernetes. Tất cả yêu cầu gửi vào cluster đều phải đi qua API Server — từ người dùng, CI/CD tool, cho đến các thành phần nội bộ khác.</p>
 
-        <!-- PHẦN 4: THỰC HÀNH QUAN SÁT -->
-        <section class="lesson-section">
-          <h2>Phần 4: Thực hành quan sát kiến trúc</h2>
-          <p>Dùng các lệnh sau để quan sát từng thành phần của cluster đang chạy.</p>
-
-          <h3>Kiểm tra trạng thái các node</h3>
-          <p class="code-desc">Xem danh sách tất cả node trong cluster, bao gồm địa chỉ IP, OS image, container runtime và phiên bản kernel:</p>
           <div class="code-block">
-            <div class="code-header">
-              <span class="code-lang">bash</span>
-              <button class="copy-btn" data-code="kubectl get nodes -o wide">Sao chép</button>
-            </div>
-            <pre><code>kubectl get nodes -o wide</code></pre>
+            <div class="code-header"><span class="code-lang">text – Luồng giao tiếp qua API Server</span><button class="copy-btn" data-code="User / Admin / CI-CD Tool
+        |
+        v
+kubectl / API Client / Dashboard
+        |
+        v (HTTPS + mTLS)
+kube-apiserver  ←→  etcd  (lưu/đọc trạng thái)
+        |
+        v
+kube-scheduler / kube-controller-manager / kubelet">Sao chép</button></div>
+            <pre><code>User / Admin / CI-CD Tool
+        |
+        v
+kubectl / API Client / Dashboard
+        |
+        v (HTTPS + mTLS)
+kube-apiserver  ←→  etcd  (lưu/đọc trạng thái)
+        |
+        v
+kube-scheduler / kube-controller-manager / kubelet</code></pre>
           </div>
 
-          <h3>Kiểm tra health của các component</h3>
-          <p class="code-desc">Kiểm tra sức khỏe các thành phần control plane (etcd, kube-scheduler, kube-controller-manager):</p>
-          <div class="code-block">
-            <div class="code-header">
-              <span class="code-lang">bash</span>
-              <button class="copy-btn" data-code="kubectl get componentstatuses">Sao chép</button>
-            </div>
-            <pre><code>kubectl get componentstatuses</code></pre>
+          <p>Vai trò chính của <code>kube-apiserver</code>:</p>
+          <ul class="goal-list">
+            <li>Cung cấp Kubernetes REST API (HTTP/HTTPS)</li>
+            <li>Xác thực (Authentication) — kiểm tra danh tính người gửi request</li>
+            <li>Ủy quyền (Authorization) — kiểm tra người đó có quyền thực hiện hành động không</li>
+            <li>Kiểm tra tính hợp lệ (Admission Control) của object</li>
+            <li>Ghi trạng thái mong muốn vào <code>etcd</code></li>
+            <li>Là điểm giao tiếp duy nhất giữa các thành phần trong cluster</li>
+          </ul>
+
+          <div class="info-box">
+            <div class="info-box-title">💡 Nguyên tắc quan trọng</div>
+            <p style="margin:0;font-size:13.5px;color:#1e40af;line-height:1.7">Muốn nói chuyện với Kubernetes, gần như luôn phải đi qua <code>kube-apiserver</code>. Không có thành phần nào giao tiếp trực tiếp với etcd ngoại trừ API Server.</p>
           </div>
 
-          <h3>Xem các Pod hệ thống</h3>
-          <p class="code-desc">Liệt kê tất cả Pod đang chạy trong namespace <code>kube-system</code> — nơi chứa các thành phần hệ thống của Kubernetes như apiserver, etcd, scheduler, coredns, calico:</p>
-          <div class="code-block">
-            <div class="code-header">
-              <span class="code-lang">bash</span>
-              <button class="copy-btn" data-code="kubectl get pods -n kube-system -o wide">Sao chép</button>
-            </div>
-            <pre><code>kubectl get pods -n kube-system -o wide</code></pre>
-          </div>
+          <h3>3.2 etcd</h3>
+          <p><code>etcd</code> là cơ sở dữ liệu key-value phân tán của Kubernetes. Toàn bộ trạng thái của cluster được lưu trong <code>etcd</code> — đây là "bộ nhớ dài hạn" duy nhất của hệ thống.</p>
+          <p>Những gì được lưu trong etcd:</p>
+          <ul class="goal-list">
+            <li>Danh sách và cấu hình tất cả node trong cluster</li>
+            <li>Định nghĩa của tất cả Pod, Deployment, Service, ConfigMap, Secret...</li>
+            <li>Trạng thái hiện tại và trạng thái mong muốn của mọi object</li>
+            <li>Thông tin Namespace, RBAC, Certificate...</li>
+          </ul>
 
-          <h3>Kiểm tra Static Pod manifests</h3>
-          <p class="code-desc">Liệt kê các file YAML trong thư mục <code>/etc/kubernetes/manifests/</code> — đây là nơi kubeadm đặt định nghĩa Static Pod cho các control plane component. kubelet sẽ đọc thư mục này và tự khởi chạy các Pod tương ứng:</p>
           <div class="code-block">
-            <div class="code-header">
-              <span class="code-lang">bash</span>
-              <button class="copy-btn" data-code="ls -la /etc/kubernetes/manifests/">Sao chép</button>
-            </div>
-            <pre><code>ls -la /etc/kubernetes/manifests/</code></pre>
-          </div>
+            <div class="code-header"><span class="code-lang">text – etcd trong mô hình lab</span><button class="copy-btn" data-code="master-01
+└── etcd (chạy dưới dạng Static Pod)
+    ├── Lưu trữ: toàn bộ Kubernetes state
+    ├── Port: 2379 (client), 2380 (peer)
+    ├── Dữ liệu: /var/lib/etcd/
+    └── Chỉ API Server được phép giao tiếp trực tiếp
 
-          <h3>Kiểm tra kubelet service</h3>
-          <p class="code-desc">Kiểm tra trạng thái của kubelet — đây là service chạy trực tiếp trên mỗi node (không phải Pod), chịu trách nhiệm khởi động và giám sát tất cả container trên node đó:</p>
-          <div class="code-block">
-            <div class="code-header">
-              <span class="code-lang">bash</span>
-              <button class="copy-btn" data-code="systemctl status kubelet">Sao chép</button>
-            </div>
-            <pre><code>systemctl status kubelet</code></pre>
-          </div>
+⚠️  Nếu etcd mất dữ liệu mà không có backup → cluster mất toàn bộ state">Sao chép</button></div>
+            <pre><code>master-01
+└── etcd (chạy dưới dạng Static Pod)
+    ├── Lưu trữ: toàn bộ Kubernetes state
+    ├── Port: 2379 (client), 2380 (peer)
+    ├── Dữ liệu: /var/lib/etcd/
+    └── Chỉ API Server được phép giao tiếp trực tiếp
 
-          <h3>Xem kubeconfig</h3>
-          <p class="code-desc">Hiển thị cấu hình kết nối của kubectl, bao gồm cluster endpoint, user credential và context hiện tại. Đây là file mà kubectl dùng để biết cách kết nối đến API Server:</p>
-          <div class="code-block">
-            <div class="code-header">
-              <span class="code-lang">bash</span>
-              <button class="copy-btn" data-code="kubectl config view">Sao chép</button>
-            </div>
-            <pre><code>kubectl config view</code></pre>
-          </div>
-
-          <h3>Kiểm tra API resources có sẵn</h3>
-          <p class="code-desc">Liệt kê tất cả loại resource mà Kubernetes API hỗ trợ, bao gồm tên rút gọn, API group, namespaced hay không, và kind. Dùng để khám phá các object có thể tạo trong cluster:</p>
-          <div class="code-block">
-            <div class="code-header">
-              <span class="code-lang">bash</span>
-              <button class="copy-btn" data-code="kubectl api-resources">Sao chép</button>
-            </div>
-            <pre><code>kubectl api-resources</code></pre>
-          </div>
-        </section>
-
-        <!-- PHẦN 5: TẠO POD ĐẦU TIÊN -->
-        <section class="lesson-section">
-          <h2>Phần 5: Tạo Pod đầu tiên – quan sát luồng kiến trúc</h2>
-          <p>Tạo một Pod nginx đơn giản để quan sát trực tiếp cách các thành phần Kubernetes phối hợp với nhau.</p>
-
-          <h3>Bước 1: Tạo manifest file</h3>
-          <p class="code-desc">Tạo file YAML định nghĩa một Pod chạy nginx. Lệnh <code>cat &gt; ... &lt;&lt;'EOF'</code> cho phép nhập nội dung nhiều dòng trực tiếp trong terminal. Pod sẽ chạy nginx phiên bản 1.27 và lắng nghe trên port 80:</p>
-          <div class="code-block">
-            <div class="code-header">
-              <span class="code-lang">bash</span>
-              <button class="copy-btn" data-code="cat > nginx-pod.yaml <<'EOF'
-apiVersion: v1
-kind: Pod
-metadata:
-  name: nginx-architecture-demo
-  namespace: default
-  labels:
-    app: nginx
-    lesson: architecture
-spec:
-  containers:
-    - name: nginx
-      image: nginx:1.27
-      ports:
-        - containerPort: 80
-EOF">Sao chép</button>
-            </div>
-            <pre><code>cat > nginx-pod.yaml &lt;&lt;'EOF'
-apiVersion: v1
-kind: Pod
-metadata:
-  name: nginx-architecture-demo
-  namespace: default
-  labels:
-    app: nginx
-    lesson: architecture
-spec:
-  containers:
-    - name: nginx
-      image: nginx:1.27
-      ports:
-        - containerPort: 80
-EOF</code></pre>
-          </div>
-
-          <h3>Bước 2: Apply manifest</h3>
-          <p class="code-desc">Gửi manifest lên API Server. kubectl sẽ đọc file YAML, gửi HTTP POST đến <code>kube-apiserver</code>. API Server xác thực, lưu vào <code>etcd</code>, sau đó <code>kube-scheduler</code> sẽ chọn node phù hợp:</p>
-          <div class="code-block">
-            <div class="code-header">
-              <span class="code-lang">bash</span>
-              <button class="copy-btn" data-code="kubectl apply -f nginx-pod.yaml">Sao chép</button>
-            </div>
-            <pre><code>kubectl apply -f nginx-pod.yaml</code></pre>
-          </div>
-
-          <h3>Bước 3: Kiểm tra Pod được tạo</h3>
-          <p class="code-desc">Xem trạng thái Pod kèm thông tin node đang chạy và địa chỉ IP được cấp phát. Ghi lại tên node để SSH vào kiểm tra ở bước sau:</p>
-          <div class="code-block">
-            <div class="code-header">
-              <span class="code-lang">bash</span>
-              <button class="copy-btn" data-code="kubectl get pod nginx-architecture-demo -o wide">Sao chép</button>
-            </div>
-            <pre><code>kubectl get pod nginx-architecture-demo -o wide</code></pre>
-          </div>
-
-          <h3>Bước 4: Mô tả Pod – quan sát luồng sự kiện</h3>
-          <p class="code-desc">Lệnh <code>describe</code> hiển thị chi tiết đầy đủ của Pod, bao gồm node được chọn, image đang dùng, và quan trọng nhất là phần <strong>Events</strong> — nơi có thể thấy toàn bộ luồng xử lý của Kubernetes từ lúc Pod được tạo đến lúc container chạy:</p>
-          <div class="code-block">
-            <div class="code-header">
-              <span class="code-lang">bash</span>
-              <button class="copy-btn" data-code="kubectl describe pod nginx-architecture-demo">Sao chép</button>
-            </div>
-            <pre><code>kubectl describe pod nginx-architecture-demo</code></pre>
+⚠️  Nếu etcd mất dữ liệu mà không có backup → cluster mất toàn bộ state</code></pre>
           </div>
 
           <div class="info-box">
-            <div class="info-box-title">📋 Ý nghĩa từng Event</div>
+            <div class="info-box-title">💡 Mô hình lab vs Production</div>
+            <p style="margin:0;font-size:13.5px;color:#1e40af;line-height:1.7">Trong lab 1 master + 2 worker, etcd chỉ chạy trên <code>master-01</code> — không phải mô hình HA. Trong production, nên chạy etcd cluster với 3 hoặc 5 node để đảm bảo fault tolerance, và phải có backup etcd định kỳ.</p>
+          </div>
+
+          <h3>3.3 kube-scheduler</h3>
+          <p><code>kube-scheduler</code> là thành phần quyết định Pod sẽ chạy trên node nào. Khi một Pod mới được tạo ra, ban đầu Pod chưa được gán vào worker node cụ thể. Scheduler liên tục theo dõi các Pod chưa có node và chọn node phù hợp.</p>
+
+          <div class="code-block">
+            <div class="code-header"><span class="code-lang">text – Quá trình Scheduling</span><button class="copy-btn" data-code="Pod mới được tạo (chưa có node)
+        |
+        v
+kube-scheduler phát hiện Pod chưa được gán
+        |
+        v
+Filtering (Lọc): loại bỏ node không đủ điều kiện
+  - Không đủ CPU/RAM
+  - Node đang bị taint không phù hợp
+  - nodeSelector không khớp
+        |
+        v
+Scoring (Cho điểm): xếp hạng các node còn lại
+  - Node có ít Pod nhất được ưu tiên
+  - Node có tài nguyên dư nhiều hơn
+  - Cân bằng tải giữa các node
+        |
+        v
+Chọn node có điểm cao nhất → Gắn Pod vào node đó
+        |
+        v
+kubelet trên node được chọn sẽ thực thi">Sao chép</button></div>
+            <pre><code>Pod mới được tạo (chưa có node)
+        |
+        v
+kube-scheduler phát hiện Pod chưa được gán
+        |
+        v
+Filtering (Lọc): loại bỏ node không đủ điều kiện
+  - Không đủ CPU/RAM
+  - Node đang bị taint không phù hợp
+  - nodeSelector không khớp
+        |
+        v
+Scoring (Cho điểm): xếp hạng các node còn lại
+  - Node có ít Pod nhất được ưu tiên
+  - Node có tài nguyên dư nhiều hơn
+  - Cân bằng tải giữa các node
+        |
+        v
+Chọn node có điểm cao nhất → Gắn Pod vào node đó
+        |
+        v
+kubelet trên node được chọn sẽ thực thi</code></pre>
+          </div>
+
+          <div class="info-box">
+            <div class="info-box-title">💡 Scheduler chỉ chọn node, không chạy container</div>
+            <p style="margin:0;font-size:13.5px;color:#1e40af;line-height:1.7">Sau khi scheduler gắn Pod vào node, <code>kubelet</code> trên node đó mới là thành phần thực sự tạo và chạy container. Các tính năng nâng cao như <code>nodeSelector</code>, <code>affinity</code>, <code>taint/toleration</code> sẽ học ở buổi Scheduling nâng cao.</p>
+          </div>
+
+          <h3>3.4 kube-controller-manager</h3>
+          <p><code>kube-controller-manager</code> chạy các <strong>controller</strong> — những vòng lặp điều khiển liên tục quan sát trạng thái thực tế của cluster và cố gắng đưa về trạng thái mong muốn.</p>
+
+          <div class="code-block">
+            <div class="code-header"><span class="code-lang">text – Control Loop (Vòng lặp điều khiển)</span><button class="copy-btn" data-code="Trạng thái mong muốn (Desired State):
+  → Cần 3 bản sao của Pod nginx
+
+Trạng thái thực tế (Actual State):
+  → Chỉ có 2 Pod nginx đang chạy (1 Pod đã crash)
+
+Controller phát hiện lệch → Hành động:
+  → Tạo thêm 1 Pod nginx mới để đủ 3 bản sao
+
+Vòng lặp này chạy liên tục (Reconciliation Loop)">Sao chép</button></div>
+            <pre><code>Trạng thái mong muốn (Desired State):
+  → Cần 3 bản sao của Pod nginx
+
+Trạng thái thực tế (Actual State):
+  → Chỉ có 2 Pod nginx đang chạy (1 Pod đã crash)
+
+Controller phát hiện lệch → Hành động:
+  → Tạo thêm 1 Pod nginx mới để đủ 3 bản sao
+
+Vòng lặp này chạy liên tục (Reconciliation Loop)</code></pre>
+          </div>
+
+          <p>Một số controller phổ biến (sẽ học chi tiết ở các buổi sau):</p>
+          <div class="node-table-wrap">
             <table class="node-table">
-              <thead><tr><th>Event</th><th>Ý nghĩa</th></tr></thead>
+              <thead><tr><th>Controller</th><th>Chức năng</th></tr></thead>
               <tbody>
-                <tr><td><code>Scheduled</code></td><td>kube-scheduler đã chọn node cho Pod</td></tr>
-                <tr><td><code>Pulling</code></td><td>containerd đang pull image từ registry</td></tr>
-                <tr><td><code>Pulled</code></td><td>Image đã được pull xong thành công</td></tr>
-                <tr><td><code>Created</code></td><td>Container đã được tạo bởi container runtime</td></tr>
-                <tr><td><code>Started</code></td><td>Container đã được khởi chạy thành công</td></tr>
+                <tr><td><code>Node Controller</code></td><td>Theo dõi trạng thái node, xử lý khi node mất kết nối</td></tr>
+                <tr><td><code>ReplicaSet Controller</code></td><td>Đảm bảo đúng số lượng Pod replica theo khai báo</td></tr>
+                <tr><td><code>Deployment Controller</code></td><td>Quản lý rolling update, rollback cho Deployment</td></tr>
+                <tr><td><code>Job Controller</code></td><td>Đảm bảo Job chạy đến khi hoàn thành</td></tr>
+                <tr><td><code>EndpointSlice Controller</code></td><td>Duy trì danh sách IP của Pod phía sau Service</td></tr>
               </tbody>
             </table>
           </div>
 
-          <h3>Bước 5: SSH vào worker node và kiểm tra container thực tế</h3>
-          <p class="code-desc">SSH vào worker node đang chạy Pod (thay <code>worker-01</code> bằng tên node thực tế từ bước 3). Lệnh <code>crictl ps</code> dùng để xem các container đang chạy trực tiếp qua CRI interface — chứng minh rằng kubelet và containerd đã thực sự tạo container trên node đó:</p>
+          <h3>3.5 cloud-controller-manager (tùy chọn)</h3>
+          <p><code>cloud-controller-manager</code> chỉ dùng khi Kubernetes tích hợp với cloud provider như AWS, Azure, Google Cloud hoặc OpenStack. Trong mô hình on-premise bằng <code>kubeadm</code> với 3 VM Ubuntu, thành phần này thường không được sử dụng. Chức năng: tạo Load Balancer cloud, đọc thông tin node từ cloud provider, quản lý route cloud.</p>
+        </section>
+
+        <!-- PHẦN 4: WORKER NODE -->
+        <section class="lesson-section">
+          <h2>Phần 4: Worker Node — Nơi chạy workload</h2>
+          <p>Worker Node là nơi chạy workload ứng dụng thực tế. Trong mô hình lab, <code>worker-01</code> và <code>worker-02</code> sẽ chạy Pod của ứng dụng. Mỗi worker node có cấu trúc cố định:</p>
+
           <div class="code-block">
-            <div class="code-header">
-              <span class="code-lang">bash</span>
-              <button class="copy-btn" data-code="ssh worker-01
-sudo crictl ps | grep nginx">Sao chép</button>
-            </div>
-            <pre><code>ssh worker-01
-sudo crictl ps | grep nginx</code></pre>
+            <div class="code-header"><span class="code-lang">text – Cấu trúc chi tiết một Worker Node</span><button class="copy-btn" data-code="Worker Node (ví dụ: worker-01)
+├── OS: Ubuntu 24.04
+│
+├── kubelet                   ← Chạy như systemd service
+│   ├── Đọc PodSpec từ API Server
+│   ├── Gọi container runtime (CRI)
+│   ├── Theo dõi health của container
+│   └── Báo cáo trạng thái về API Server
+│
+├── kube-proxy                ← Chạy như DaemonSet Pod
+│   ├── Quản lý iptables/IPVS rules
+│   └── Đảm bảo traffic đến Service được forward đúng Pod
+│
+├── containerd                ← Container Runtime (CRI)
+│   ├── Nhận lệnh từ kubelet qua CRI interface
+│   ├── Pull image từ container registry
+│   ├── Tạo và quản lý container
+│   └── Dùng runc để thực sự chạy container
+│
+├── CNI Plugin (ví dụ: Calico)
+│   ├── Cấp IP cho mỗi Pod
+│   ├── Cấu hình network namespace cho Pod
+│   └── Cho phép Pod trên các node khác nhau giao tiếp
+│
+└── Pods
+    ├── Pod A (ứng dụng)
+    │   ├── Container 1
+    │   └── Container 2 (sidecar)
+    └── Pod B (ứng dụng)
+        └── Container 1">Sao chép</button></div>
+            <pre><code>Worker Node (ví dụ: worker-01)
+├── OS: Ubuntu 24.04
+│
+├── kubelet                   ← Chạy như systemd service
+│   ├── Đọc PodSpec từ API Server
+│   ├── Gọi container runtime (CRI)
+│   ├── Theo dõi health của container
+│   └── Báo cáo trạng thái về API Server
+│
+├── kube-proxy                ← Chạy như DaemonSet Pod
+│   ├── Quản lý iptables/IPVS rules
+│   └── Đảm bảo traffic đến Service được forward đúng Pod
+│
+├── containerd                ← Container Runtime (CRI)
+│   ├── Nhận lệnh từ kubelet qua CRI interface
+│   ├── Pull image từ container registry
+│   ├── Tạo và quản lý container
+│   └── Dùng runc để thực sự chạy container
+│
+├── CNI Plugin (ví dụ: Calico)
+│   ├── Cấp IP cho mỗi Pod
+│   ├── Cấu hình network namespace cho Pod
+│   └── Cho phép Pod trên các node khác nhau giao tiếp
+│
+└── Pods
+    ├── Pod A (ứng dụng)
+    │   ├── Container 1
+    │   └── Container 2 (sidecar)
+    └── Pod B (ứng dụng)
+        └── Container 1</code></pre>
           </div>
 
-          <h3>Bước 6: Xóa Pod</h3>
-          <p class="code-desc">Xóa Pod bằng declarative manifest. Kubernetes sẽ xóa object khỏi <code>etcd</code>, kubelet nhận tín hiệu và dừng container, container runtime dọn dẹp. Kiểm tra lại để xác nhận Pod đã bị xóa hoàn toàn:</p>
+          <h3>4.1 kubelet — Node Agent</h3>
+          <p><code>kubelet</code> là agent chạy trên <strong>mỗi node</strong> trong cluster — bao gồm cả control plane node và worker node. kubelet chạy như một systemd service, không phải một Pod. Đây là thành phần duy nhất không do Kubernetes tự quản lý.</p>
+          <p>Vai trò chính của <code>kubelet</code>:</p>
+          <ul class="goal-list">
+            <li>Đăng ký node với Kubernetes API Server khi node khởi động</li>
+            <li>Nhận PodSpec từ API Server và đảm bảo các container trong Pod đang chạy đúng</li>
+            <li>Gọi container runtime (qua CRI interface) để tạo, start, stop container</li>
+            <li>Theo dõi health của container bằng liveness probe, readiness probe</li>
+            <li>Báo cáo trạng thái node và Pod về API Server định kỳ</li>
+            <li>Trên master: kubelet cũng quản lý các Static Pod control plane</li>
+          </ul>
+
           <div class="code-block">
-            <div class="code-header">
-              <span class="code-lang">bash</span>
-              <button class="copy-btn" data-code="kubectl delete -f nginx-pod.yaml
-kubectl get pods">Sao chép</button>
-            </div>
-            <pre><code>kubectl delete -f nginx-pod.yaml
-kubectl get pods</code></pre>
+            <div class="code-header"><span class="code-lang">text – Luồng kubelet nhận và thực thi lệnh</span><button class="copy-btn" data-code="kube-apiserver
+      |  (thông báo có Pod cần chạy trên node này)
+      v
+kubelet trên worker-01
+      |  (đọc PodSpec: image, port, env, volume...)
+      v
+CRI (Container Runtime Interface)
+      |  (giao tiếp chuẩn hóa với runtime)
+      v
+containerd
+      |  (pull image, tạo namespace, cấu hình mạng)
+      v
+runc
+      |  (tạo container process thực sự)
+      v
+Container đang chạy bên trong Pod">Sao chép</button></div>
+            <pre><code>kube-apiserver
+      |  (thông báo có Pod cần chạy trên node này)
+      v
+kubelet trên worker-01
+      |  (đọc PodSpec: image, port, env, volume...)
+      v
+CRI (Container Runtime Interface)
+      |  (giao tiếp chuẩn hóa với runtime)
+      v
+containerd
+      |  (pull image, tạo namespace, cấu hình mạng)
+      v
+runc
+      |  (tạo container process thực sự)
+      v
+Container đang chạy bên trong Pod</code></pre>
+          </div>
+
+          <h3>4.2 Container Runtime — containerd</h3>
+          <p>Container Runtime là phần mềm chịu trách nhiệm chạy container thật sự trên node. Kubernetes không tự mình chạy container mà giao tiếp với container runtime thông qua chuẩn <strong>CRI (Container Runtime Interface)</strong>.</p>
+
+          <div class="node-table-wrap">
+            <table class="node-table">
+              <thead><tr><th>Layer</th><th>Thành phần</th><th>Vai trò</th></tr></thead>
+              <tbody>
+                <tr><td>High-level runtime</td><td><code>containerd</code></td><td>Quản lý vòng đời container, pull image, lưu image</td></tr>
+                <tr><td>Low-level runtime</td><td><code>runc</code></td><td>Tạo container process thực sự theo chuẩn OCI</td></tr>
+                <tr><td>Interface</td><td><code>CRI</code></td><td>Giao diện chuẩn để kubelet giao tiếp với runtime</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="code-block">
+            <div class="code-header"><span class="code-lang">text – Kiến trúc Container Runtime layer</span><button class="copy-btn" data-code="kubelet
+  │  giao tiếp qua CRI (gRPC)
+  ▼
+containerd  (/run/containerd/containerd.sock)
+  │  quản lý: image pull, snapshot, network setup
+  ▼
+containerd-shim
+  │  giữ container chạy độc lập với containerd
+  ▼
+runc
+  │  tạo Linux namespace, cgroups, mount rootfs
+  ▼
+Container Process (pid 1 trong container)">Sao chép</button></div>
+            <pre><code>kubelet
+  │  giao tiếp qua CRI (gRPC)
+  ▼
+containerd  (/run/containerd/containerd.sock)
+  │  quản lý: image pull, snapshot, network setup
+  ▼
+containerd-shim
+  │  giữ container chạy độc lập với containerd
+  ▼
+runc
+  │  tạo Linux namespace, cgroups, mount rootfs
+  ▼
+Container Process (pid 1 trong container)</code></pre>
+          </div>
+
+          <h3>4.3 kube-proxy — Network Rules</h3>
+          <p><code>kube-proxy</code> chạy trên mỗi node (dưới dạng DaemonSet) và chịu trách nhiệm duy trì network rules để traffic đến Kubernetes Service được chuyển đến đúng Pod. Trên Linux, kube-proxy thường làm việc với <strong>iptables</strong> hoặc <strong>IPVS</strong>.</p>
+          <p>Ở buổi này, chỉ cần nhớ kube-proxy liên quan đến việc forward traffic trong cluster. Chi tiết về Service và kube-proxy sẽ học ở buổi Service & Networking.</p>
+
+          <h3>4.4 CNI Plugin — Pod Networking</h3>
+          <p>CNI (Container Network Interface) plugin cung cấp mạng cho Pod. Kubernetes cần CNI plugin để mỗi Pod nhận được địa chỉ IP và có thể giao tiếp với Pod khác dù trên cùng hay khác node.</p>
+
+          <div class="node-table-wrap">
+            <table class="node-table">
+              <thead><tr><th>CNI Plugin</th><th>Đặc điểm</th></tr></thead>
+              <tbody>
+                <tr><td><code>Calico</code></td><td>Phổ biến, hỗ trợ NetworkPolicy, dùng BGP routing. Lab này sử dụng Calico.</td></tr>
+                <tr><td><code>Cilium</code></td><td>Hiệu năng cao, dùng eBPF, hỗ trợ L7 NetworkPolicy</td></tr>
+                <tr><td><code>Flannel</code></td><td>Đơn giản, nhẹ, phù hợp môi trường học tập nhỏ</td></tr>
+                <tr><td><code>Weave Net</code></td><td>Dễ cài đặt, hỗ trợ mã hóa traffic giữa node</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="info-box">
+            <div class="info-box-title">⚠️ Quan trọng</div>
+            <p style="margin:0;font-size:13.5px;color:#1e40af;line-height:1.7">Nếu chưa cài CNI plugin sau <code>kubeadm init</code>, nhiều Pod hệ thống như CoreDNS sẽ ở trạng thái <code>Pending</code> hoặc <code>ContainerCreating</code> và không thể chạy. Không có CNI → Pod networking trong cluster sẽ không hoàn chỉnh.</p>
+          </div>
+
+          <h3>4.5 CoreDNS — DNS nội bộ</h3>
+          <p>CoreDNS là DNS addon mặc định của Kubernetes. CoreDNS giúp các Pod phân giải tên miền nội bộ trong cluster thay vì phải dùng IP cứng. CoreDNS chạy như một Deployment trong namespace <code>kube-system</code>.</p>
+
+          <div class="code-block">
+            <div class="code-header"><span class="code-lang">text – Ví dụ DNS trong cluster</span><button class="copy-btn" data-code="Pod A muốn giao tiếp với Service tên là 'my-api':
+
+Pod A → DNS query: my-api.default.svc.cluster.local
+                       ↓
+                   CoreDNS
+                       ↓ trả về ClusterIP của Service
+Pod A → kết nối đến ClusterIP → kube-proxy forward → Pod của my-api
+
+Format DNS đầy đủ của Service:
+{service-name}.{namespace}.svc.{cluster-domain}
+Ví dụ: my-api.default.svc.cluster.local">Sao chép</button></div>
+            <pre><code>Pod A muốn giao tiếp với Service tên là 'my-api':
+
+Pod A → DNS query: my-api.default.svc.cluster.local
+                       ↓
+                   CoreDNS
+                       ↓ trả về ClusterIP của Service
+Pod A → kết nối đến ClusterIP → kube-proxy forward → Pod của my-api
+
+Format DNS đầy đủ của Service:
+{service-name}.{namespace}.svc.{cluster-domain}
+Ví dụ: my-api.default.svc.cluster.local</code></pre>
           </div>
         </section>
 
-        <!-- PHẦN 6: CÂU HỎI KIỂM TRA -->
+        <!-- PHẦN 5: POD -->
+        <section class="lesson-section">
+          <h2>Phần 5: Pod — Đơn vị triển khai nhỏ nhất</h2>
+          <p>Pod là đơn vị triển khai nhỏ nhất mà Kubernetes có thể tạo và quản lý. Kubernetes <strong>không quản lý container trực tiếp</strong> — Kubernetes quản lý Pod, và container chạy bên trong Pod.</p>
+
+          <div class="code-block">
+            <div class="code-header"><span class="code-lang">text – Cấu trúc chi tiết bên trong một Pod</span><button class="copy-btn" data-code="Pod: nginx-pod (chạy trên worker-01)
+│
+├── Pause Container (infrastructure container)
+│   ├── Tạo network namespace dùng chung cho cả Pod
+│   ├── Giữ IP address của Pod
+│   └── Chạy ẩn, người dùng không thấy
+│
+├── Container 1: nginx (main container)
+│   ├── Image: nginx:1.27
+│   ├── Port: 80
+│   ├── Dùng chung network namespace với pause container
+│   └── Giao tiếp với container khác qua localhost
+│
+└── Container 2: log-agent (sidecar - tùy chọn)
+    ├── Image: fluentd:latest
+    ├── Dùng chung Volume với container nginx
+    └── Giao tiếp với nginx qua localhost:80
+
+Tài nguyên dùng chung trong 1 Pod:
+  ✓ Network namespace (IP, port space)
+  ✓ Volume (nếu được mount)
+  ✗ Process namespace (mặc định tách biệt)">Sao chép</button></div>
+            <pre><code>Pod: nginx-pod (chạy trên worker-01)
+│
+├── Pause Container (infrastructure container)
+│   ├── Tạo network namespace dùng chung cho cả Pod
+│   ├── Giữ IP address của Pod
+│   └── Chạy ẩn, người dùng không thấy
+│
+├── Container 1: nginx (main container)
+│   ├── Image: nginx:1.27
+│   ├── Port: 80
+│   ├── Dùng chung network namespace với pause container
+│   └── Giao tiếp với container khác qua localhost
+│
+└── Container 2: log-agent (sidecar - tùy chọn)
+    ├── Image: fluentd:latest
+    ├── Dùng chung Volume với container nginx
+    └── Giao tiếp với nginx qua localhost:80
+
+Tài nguyên dùng chung trong 1 Pod:
+  ✓ Network namespace (IP, port space)
+  ✓ Volume (nếu được mount)
+  ✗ Process namespace (mặc định tách biệt)</code></pre>
+          </div>
+
+          <h3>5.1 Đặc điểm quan trọng của Pod</h3>
+
+          <div class="node-table-wrap">
+            <table class="node-table">
+              <thead><tr><th>Đặc điểm</th><th>Giải thích</th></tr></thead>
+              <tbody>
+                <tr><td>Mỗi Pod có 1 IP duy nhất</td><td>IP được cấp bởi CNI plugin, gắn với Pod suốt vòng đời</td></tr>
+                <tr><td>Pod là ephemeral (tạm thời)</td><td>Pod có thể bị xóa và tạo lại bất kỳ lúc nào, IP sẽ thay đổi</td></tr>
+                <tr><td>Container trong Pod dùng chung network</td><td>Giao tiếp nhau qua <code>localhost</code>, không cần IP riêng</td></tr>
+                <tr><td>Pod chạy trên đúng 1 node</td><td>Tất cả container trong Pod luôn chạy trên cùng một node</td></tr>
+                <tr><td>Pod không tự heal khi bị xóa</td><td>Cần Deployment/ReplicaSet để tự động tạo lại Pod khi Pod chết</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <h3>5.2 Pod đơn container vs Multi-container Pod</h3>
+          <div class="code-block">
+            <div class="code-header"><span class="code-lang">text – Hai mô hình Pod phổ biến</span><button class="copy-btn" data-code="=== Mô hình 1: Single Container Pod (phổ biến nhất) ===
+Pod
+└── Container: nginx
+    └── Chạy web server
+
+=== Mô hình 2: Multi-Container Pod (Sidecar Pattern) ===
+Pod
+├── Container 1: nginx (main)         → Xử lý HTTP request
+├── Container 2: fluentd (sidecar)    → Đọc log của nginx, gửi lên Elasticsearch
+└── Container 3: envoy (sidecar)      → Proxy, xử lý mTLS, tracing
+
+Cả 3 container dùng chung localhost và volume
+→ Container 2 đọc file log của Container 1 qua shared volume
+→ Container 3 nhận traffic trước Container 1 qua localhost">Sao chép</button></div>
+            <pre><code>=== Mô hình 1: Single Container Pod (phổ biến nhất) ===
+Pod
+└── Container: nginx
+    └── Chạy web server
+
+=== Mô hình 2: Multi-Container Pod (Sidecar Pattern) ===
+Pod
+├── Container 1: nginx (main)         → Xử lý HTTP request
+├── Container 2: fluentd (sidecar)    → Đọc log của nginx, gửi lên Elasticsearch
+└── Container 3: envoy (sidecar)      → Proxy, xử lý mTLS, tracing
+
+Cả 3 container dùng chung localhost và volume
+→ Container 2 đọc file log của Container 1 qua shared volume
+→ Container 3 nhận traffic trước Container 1 qua localhost</code></pre>
+          </div>
+
+          <h3>5.3 Pod trong mô hình phân cấp Kubernetes</h3>
+          <div class="code-block">
+            <div class="code-header"><span class="code-lang">text – Vị trí Pod trong hệ thống phân cấp</span><button class="copy-btn" data-code="Kubernetes Cluster
+└── Node: worker-01
+    └── Pod: nginx-pod         ← Đơn vị nhỏ nhất Kubernetes quản lý
+        └── Container: nginx   ← Đơn vị nhỏ nhất container runtime quản lý
+
+Trong production thực tế (sẽ học ở buổi sau):
+Deployment (quản lý rolling update)
+└── ReplicaSet (đảm bảo số lượng Pod)
+    ├── Pod 1: nginx
+    ├── Pod 2: nginx
+    └── Pod 3: nginx">Sao chép</button></div>
+            <pre><code>Kubernetes Cluster
+└── Node: worker-01
+    └── Pod: nginx-pod         ← Đơn vị nhỏ nhất Kubernetes quản lý
+        └── Container: nginx   ← Đơn vị nhỏ nhất container runtime quản lý
+
+Trong production thực tế (sẽ học ở buổi sau):
+Deployment (quản lý rolling update)
+└── ReplicaSet (đảm bảo số lượng Pod)
+    ├── Pod 1: nginx
+    ├── Pod 2: nginx
+    └── Pod 3: nginx</code></pre>
+          </div>
+        </section>
+
+        <!-- PHẦN 6: NAMESPACE -->
+        <section class="lesson-section">
+          <h2>Phần 6: Namespace — Phân vùng logic trong cluster</h2>
+          <p>Namespace là cơ chế phân chia tài nguyên logic trong Kubernetes. Các object trong cùng namespace chia sẻ một không gian tên, và có thể áp dụng quota, RBAC riêng cho từng namespace.</p>
+
+          <div class="node-table-wrap">
+            <table class="node-table">
+              <thead><tr><th>Namespace</th><th>Mục đích</th><th>Nội dung thường có</th></tr></thead>
+              <tbody>
+                <tr><td><code>default</code></td><td>Namespace mặc định cho workload</td><td>Pod, Deployment người dùng tạo nếu không chỉ định namespace</td></tr>
+                <tr><td><code>kube-system</code></td><td>Namespace hệ thống Kubernetes</td><td>etcd, apiserver, scheduler, controller, coredns, kube-proxy, calico</td></tr>
+                <tr><td><code>kube-public</code></td><td>Namespace công khai (readable by all)</td><td>ConfigMap cluster-info, thông tin có thể đọc công khai</td></tr>
+                <tr><td><code>kube-node-lease</code></td><td>Heartbeat của node</td><td>Lease object — kubelet cập nhật định kỳ để báo node còn sống</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="code-block">
+            <div class="code-header"><span class="code-lang">text – Ví dụ phân chia Namespace theo team/môi trường</span><button class="copy-btn" data-code="Trong production, thường tổ chức namespace theo môi trường hoặc team:
+
+Cluster Production
+├── namespace: frontend-team
+│   ├── Pod: react-app
+│   └── Pod: nginx-proxy
+├── namespace: backend-team
+│   ├── Pod: api-server
+│   └── Pod: worker
+├── namespace: monitoring
+│   ├── Pod: prometheus
+│   └── Pod: grafana
+└── namespace: kube-system
+    └── (các Pod hệ thống)">Sao chép</button></div>
+            <pre><code>Trong production, thường tổ chức namespace theo môi trường hoặc team:
+
+Cluster Production
+├── namespace: frontend-team
+│   ├── Pod: react-app
+│   └── Pod: nginx-proxy
+├── namespace: backend-team
+│   ├── Pod: api-server
+│   └── Pod: worker
+├── namespace: monitoring
+│   ├── Pod: prometheus
+│   └── Pod: grafana
+└── namespace: kube-system
+    └── (các Pod hệ thống)</code></pre>
+          </div>
+        </section>
+
+        <!-- PHẦN 7: STATIC POD -->
+        <section class="lesson-section">
+          <h2>Phần 7: Static Pod trong mô hình kubeadm</h2>
+          <p>Trong cluster được tạo bằng <code>kubeadm</code>, các control plane component thường chạy dưới dạng <strong>Static Pod</strong>. Đây là loại Pod đặc biệt được quản lý trực tiếp bởi <code>kubelet</code> trên một node cụ thể, không phải được tạo qua API Server theo cách thông thường.</p>
+
+          <div class="code-block">
+            <div class="code-header"><span class="code-lang">text – Cơ chế hoạt động của Static Pod</span><button class="copy-btn" data-code="Thư mục: /etc/kubernetes/manifests/
+├── etcd.yaml                        ← kubelet đọc file này
+├── kube-apiserver.yaml              ← kubelet đọc file này
+├── kube-controller-manager.yaml    ← kubelet đọc file này
+└── kube-scheduler.yaml             ← kubelet đọc file này
+
+Luồng khởi động:
+1. kubelet trên master-01 khởi động cùng OS
+2. kubelet scan /etc/kubernetes/manifests/
+3. kubelet yêu cầu containerd tạo các Static Pod
+4. kube-apiserver Static Pod khởi động thành công
+5. Từ đây API Server hoạt động bình thường
+6. Các Static Pod được mirror lên API Server (mirror pods)
+
+⚠️ Nếu xóa Static Pod qua kubectl → Pod sẽ tự được tạo lại
+   Muốn dừng Static Pod → phải xóa hoặc sửa file .yaml trong thư mục">Sao chép</button></div>
+            <pre><code>Thư mục: /etc/kubernetes/manifests/
+├── etcd.yaml                        ← kubelet đọc file này
+├── kube-apiserver.yaml              ← kubelet đọc file này
+├── kube-controller-manager.yaml    ← kubelet đọc file này
+└── kube-scheduler.yaml             ← kubelet đọc file này
+
+Luồng khởi động:
+1. kubelet trên master-01 khởi động cùng OS
+2. kubelet scan /etc/kubernetes/manifests/
+3. kubelet yêu cầu containerd tạo các Static Pod
+4. kube-apiserver Static Pod khởi động thành công
+5. Từ đây API Server hoạt động bình thường
+6. Các Static Pod được mirror lên API Server (mirror pods)
+
+⚠️ Nếu xóa Static Pod qua kubectl → Pod sẽ tự được tạo lại
+   Muốn dừng Static Pod → phải xóa hoặc sửa file .yaml trong thư mục</code></pre>
+          </div>
+        </section>
+
+        <!-- PHẦN 8: KUBECTL -->
+        <section class="lesson-section">
+          <h2>Phần 8: kubectl và kubeconfig</h2>
+          <p><code>kubectl</code> là công cụ dòng lệnh chính để làm việc với Kubernetes. Khi chạy bất kỳ lệnh kubectl nào, luồng xử lý đều đi qua API Server.</p>
+
+          <div class="code-block">
+            <div class="code-header"><span class="code-lang">text – Luồng hoạt động của kubectl</span><button class="copy-btn" data-code="kubectl get nodes
+  |
+  | 1. kubectl đọc ~/.kube/config (kubeconfig)
+  |    → Biết địa chỉ API Server
+  |    → Biết certificate/token để xác thực
+  v
+kube-apiserver (https://MASTER_IP:6443)
+  |
+  | 2. API Server xác thực request
+  | 3. API Server kiểm tra quyền (Authorization)
+  | 4. API Server đọc dữ liệu từ etcd
+  v
+etcd
+  |
+  | 5. Trả dữ liệu về API Server
+  v
+kube-apiserver
+  |
+  | 6. API Server trả response về kubectl
+  v
+kubectl hiển thị kết quả ra terminal">Sao chép</button></div>
+            <pre><code>kubectl get nodes
+  |
+  | 1. kubectl đọc ~/.kube/config (kubeconfig)
+  |    → Biết địa chỉ API Server
+  |    → Biết certificate/token để xác thực
+  v
+kube-apiserver (https://MASTER_IP:6443)
+  |
+  | 2. API Server xác thực request
+  | 3. API Server kiểm tra quyền (Authorization)
+  | 4. API Server đọc dữ liệu từ etcd
+  v
+etcd
+  |
+  | 5. Trả dữ liệu về API Server
+  v
+kube-apiserver
+  |
+  | 6. API Server trả response về kubectl
+  v
+kubectl hiển thị kết quả ra terminal</code></pre>
+          </div>
+
+          <h3>Cấu trúc file kubeconfig</h3>
+          <p>File kubeconfig (<code>~/.kube/config</code>) chứa thông tin để kubectl kết nối đến cluster. Với cluster tạo bằng <code>kubeadm</code>, file admin kubeconfig nằm tại <code>/etc/kubernetes/admin.conf</code>.</p>
+
+          <div class="code-block">
+            <div class="code-header"><span class="code-lang">yaml – Cấu trúc kubeconfig</span><button class="copy-btn" data-code="apiVersion: v1
+kind: Config
+clusters:
+  - name: kubernetes                    # Tên cluster
+    cluster:
+      server: https://10.10.10.11:6443  # Địa chỉ API Server
+      certificate-authority-data: ...   # CA certificate để verify API Server
+users:
+  - name: kubernetes-admin              # Tên user
+    user:
+      client-certificate-data: ...      # Client cert (xác thực)
+      client-key-data: ...              # Client private key
+contexts:
+  - name: kubernetes-admin@kubernetes   # Kết hợp user + cluster
+    context:
+      cluster: kubernetes
+      user: kubernetes-admin
+current-context: kubernetes-admin@kubernetes  # Context đang dùng">Sao chép</button></div>
+            <pre><code>apiVersion: v1
+kind: Config
+clusters:
+  - name: kubernetes                    # Tên cluster
+    cluster:
+      server: https://10.10.10.11:6443  # Địa chỉ API Server
+      certificate-authority-data: ...   # CA certificate để verify API Server
+users:
+  - name: kubernetes-admin              # Tên user
+    user:
+      client-certificate-data: ...      # Client cert (xác thực)
+      client-key-data: ...              # Client private key
+contexts:
+  - name: kubernetes-admin@kubernetes   # Kết hợp user + cluster
+    context:
+      cluster: kubernetes
+      user: kubernetes-admin
+current-context: kubernetes-admin@kubernetes  # Context đang dùng</code></pre>
+          </div>
+        </section>
+
+        <!-- PHẦN 9: LUỒNG TẠO POD -->
+        <section class="lesson-section">
+          <h2>Phần 9: Luồng hoạt động đầy đủ khi tạo một Pod</h2>
+          <p>Đây là một trong những luồng quan trọng nhất cần nắm trong buổi đầu. Hiểu luồng này giúp bạn biết khi Pod không chạy, vấn đề đang nằm ở thành phần nào.</p>
+
+          <div class="code-block">
+            <div class="code-header"><span class="code-lang">text – Luồng tạo Pod chi tiết (10 bước)</span><button class="copy-btn" data-code="Người dùng chạy: kubectl apply -f nginx-pod.yaml
+│
+│ Bước 1: kubectl đọc kubeconfig → kết nối API Server
+▼
+kube-apiserver nhận request
+│
+│ Bước 2: Authentication — Xác minh danh tính (cert/token hợp lệ?)
+│ Bước 3: Authorization — Kiểm tra quyền (có được tạo Pod không?)
+│ Bước 4: Admission Control — Validate object (YAML đúng không?)
+▼
+│ Bước 5: Ghi Pod object vào etcd với status Pending (chưa có node)
+▼
+kube-scheduler (đang watch API Server liên tục)
+│
+│ Bước 6: Phát hiện Pod chưa có node
+│          Filtering: loại bỏ node không đủ điều kiện
+│          Scoring: xếp hạng các node còn lại
+│          Chọn: worker-01 (điểm cao nhất)
+▼
+│ Bước 7: Cập nhật Pod trong etcd: nodeName = worker-01
+▼
+kubelet trên worker-01 (đang watch API Server liên tục)
+│
+│ Bước 8: Phát hiện có Pod được gán cho node mình
+│          Đọc PodSpec (image, port, env, volume...)
+▼
+containerd (qua CRI interface)
+│
+│ Bước 9: Pull image nginx:1.27 từ Docker Hub (nếu chưa có)
+│          Tạo container network namespace
+│          Gọi CNI plugin để cấp IP cho Pod
+│          Tạo container và start process
+▼
+│ Bước 10: kubelet báo cáo trạng thái về API Server
+│           API Server cập nhật Pod status trong etcd:
+│           status: Running | podIP: 10.244.1.10 | node: worker-01
+▼
+kubectl get pods → Hiển thị: nginx-pod   Running">Sao chép</button></div>
+            <pre><code>Người dùng chạy: kubectl apply -f nginx-pod.yaml
+│
+│ Bước 1: kubectl đọc kubeconfig → kết nối API Server
+▼
+kube-apiserver nhận request
+│
+│ Bước 2: Authentication — Xác minh danh tính (cert/token hợp lệ?)
+│ Bước 3: Authorization — Kiểm tra quyền (có được tạo Pod không?)
+│ Bước 4: Admission Control — Validate object (YAML đúng không?)
+▼
+│ Bước 5: Ghi Pod object vào etcd với status Pending (chưa có node)
+▼
+kube-scheduler (đang watch API Server liên tục)
+│
+│ Bước 6: Phát hiện Pod chưa có node
+│          Filtering: loại bỏ node không đủ điều kiện
+│          Scoring: xếp hạng các node còn lại
+│          Chọn: worker-01 (điểm cao nhất)
+▼
+│ Bước 7: Cập nhật Pod trong etcd: nodeName = worker-01
+▼
+kubelet trên worker-01 (đang watch API Server liên tục)
+│
+│ Bước 8: Phát hiện có Pod được gán cho node mình
+│          Đọc PodSpec (image, port, env, volume...)
+▼
+containerd (qua CRI interface)
+│
+│ Bước 9: Pull image nginx:1.27 từ Docker Hub (nếu chưa có)
+│          Tạo container network namespace
+│          Gọi CNI plugin để cấp IP cho Pod
+│          Tạo container và start process
+▼
+│ Bước 10: kubelet báo cáo trạng thái về API Server
+│           API Server cập nhật Pod status trong etcd:
+│           status: Running | podIP: 10.244.1.10 | node: worker-01
+▼
+kubectl get pods → Hiển thị: nginx-pod   Running</code></pre>
+          </div>
+        </section>
+
+        <!-- QUIZ -->
         <section class="lesson-section">
           <h2>🧪 Câu hỏi kiểm tra cuối buổi</h2>
           <div class="quiz-container" id="quiz-0">
@@ -487,53 +1041,83 @@ kubectl get pods</code></pre>
                 <button class="quiz-opt" data-correct="false">C. containerd</button>
                 <button class="quiz-opt" data-correct="false">D. CoreDNS</button>
               </div>
-              <div class="quiz-explain hidden">✅ <strong>Đáp án B:</strong> kube-apiserver expose Kubernetes API và là điểm giao tiếp trung tâm giữa người dùng và các thành phần nội bộ.</div>
+              <div class="quiz-explain hidden">✅ <strong>Đáp án B:</strong> kube-apiserver expose Kubernetes API và là điểm giao tiếp trung tâm giữa người dùng và mọi thành phần nội bộ. Không thành phần nào giao tiếp trực tiếp với etcd ngoại trừ API Server.</div>
             </div>
             <div class="quiz-item">
-              <p class="quiz-q">2. Thành phần nào lưu trạng thái của Kubernetes cluster?</p>
+              <p class="quiz-q">2. Thành phần nào lưu toàn bộ trạng thái của Kubernetes cluster?</p>
               <div class="quiz-options">
                 <button class="quiz-opt" data-correct="false">A. kube-scheduler</button>
                 <button class="quiz-opt" data-correct="false">B. kube-proxy</button>
                 <button class="quiz-opt" data-correct="true">C. etcd</button>
-                <button class="quiz-opt" data-correct="false">D. CoreDNS</button>
+                <button class="quiz-opt" data-correct="false">D. kubelet</button>
               </div>
-              <div class="quiz-explain hidden">✅ <strong>Đáp án C:</strong> etcd là key-value store dùng để lưu dữ liệu của Kubernetes API Server.</div>
+              <div class="quiz-explain hidden">✅ <strong>Đáp án C:</strong> etcd là cơ sở dữ liệu key-value lưu toàn bộ state của cluster — node, Pod, Deployment, Service... Nếu etcd mất dữ liệu không có backup, cluster mất toàn bộ state.</div>
             </div>
             <div class="quiz-item">
-              <p class="quiz-q">3. Khi một Pod mới được tạo nhưng chưa được gán vào node, thành phần nào sẽ chọn node cho Pod?</p>
+              <p class="quiz-q">3. Khi tạo Pod, thành phần nào quyết định Pod sẽ chạy trên node nào?</p>
               <div class="quiz-options">
                 <button class="quiz-opt" data-correct="true">A. kube-scheduler</button>
                 <button class="quiz-opt" data-correct="false">B. kubelet</button>
-                <button class="quiz-opt" data-correct="false">C. kube-proxy</button>
+                <button class="quiz-opt" data-correct="false">C. kube-controller-manager</button>
                 <button class="quiz-opt" data-correct="false">D. containerd</button>
               </div>
-              <div class="quiz-explain hidden">✅ <strong>Đáp án A:</strong> kube-scheduler quan sát các Pod chưa được gán node và chọn node phù hợp.</div>
+              <div class="quiz-explain hidden">✅ <strong>Đáp án A:</strong> kube-scheduler quan sát Pod chưa được gán node, thực hiện Filtering và Scoring để chọn node phù hợp nhất. Sau đó kubelet trên node được chọn mới thực sự chạy container.</div>
             </div>
             <div class="quiz-item">
-              <p class="quiz-q">4. Trong mô hình kubeadm, các manifest control plane thường nằm ở đâu?</p>
+              <p class="quiz-q">4. Các container trong cùng một Pod giao tiếp với nhau như thế nào?</p>
               <div class="quiz-options">
-                <button class="quiz-opt" data-correct="false">A. /var/lib/kubelet/config.yaml</button>
-                <button class="quiz-opt" data-correct="true">B. /etc/kubernetes/manifests/</button>
-                <button class="quiz-opt" data-correct="false">C. /etc/containerd/config.toml</button>
-                <button class="quiz-opt" data-correct="false">D. /var/log/pods/</button>
+                <button class="quiz-opt" data-correct="false">A. Qua IP riêng của từng container</button>
+                <button class="quiz-opt" data-correct="true">B. Qua localhost vì dùng chung network namespace</button>
+                <button class="quiz-opt" data-correct="false">C. Qua ClusterIP của Service</button>
+                <button class="quiz-opt" data-correct="false">D. Qua CNI plugin</button>
               </div>
-              <div class="quiz-explain hidden">✅ <strong>Đáp án B:</strong> kubeadm đặt các Static Pod manifest của control plane component trong /etc/kubernetes/manifests/.</div>
+              <div class="quiz-explain hidden">✅ <strong>Đáp án B:</strong> Các container trong cùng Pod dùng chung network namespace (nhờ Pause container). Chúng giao tiếp với nhau qua localhost và phân biệt bởi port number.</div>
             </div>
             <div class="quiz-item">
-              <p class="quiz-q">5. Công cụ nào dùng để xem container thực tế đang chạy qua CRI runtime trên node?</p>
+              <p class="quiz-q">5. Static Pod trong mô hình kubeadm được quản lý bởi thành phần nào?</p>
               <div class="quiz-options">
-                <button class="quiz-opt" data-correct="false">A. kubectl config view</button>
-                <button class="quiz-opt" data-correct="true">B. crictl ps</button>
-                <button class="quiz-opt" data-correct="false">C. kubeadm init</button>
-                <button class="quiz-opt" data-correct="false">D. kubectl api-resources</button>
+                <button class="quiz-opt" data-correct="false">A. kube-apiserver</button>
+                <button class="quiz-opt" data-correct="false">B. kube-controller-manager</button>
+                <button class="quiz-opt" data-correct="true">C. kubelet trên node đó</button>
+                <button class="quiz-opt" data-correct="false">D. etcd</button>
               </div>
-              <div class="quiz-explain hidden">✅ <strong>Đáp án B:</strong> crictl ps dùng để xem container qua CRI runtime trực tiếp trên node.</div>
+              <div class="quiz-explain hidden">✅ <strong>Đáp án C:</strong> kubelet tự scan thư mục /etc/kubernetes/manifests/ và quản lý trực tiếp các Static Pod. Đây là lý do control plane có thể khởi động ngay cả trước khi API Server sẵn sàng.</div>
+            </div>
+            <div class="quiz-item">
+              <p class="quiz-q">6. Điều gì xảy ra nếu chưa cài CNI plugin sau khi chạy kubeadm init?</p>
+              <div class="quiz-options">
+                <button class="quiz-opt" data-correct="false">A. Cluster không thể khởi động</button>
+                <button class="quiz-opt" data-correct="true">B. CoreDNS và nhiều Pod hệ thống sẽ Pending, Pod networking không hoạt động</button>
+                <button class="quiz-opt" data-correct="false">C. etcd bị lỗi</button>
+                <button class="quiz-opt" data-correct="false">D. kubectl không thể kết nối</button>
+              </div>
+              <div class="quiz-explain hidden">✅ <strong>Đáp án B:</strong> Không có CNI → Pod không được cấp IP → CoreDNS và các Pod cần network sẽ ở trạng thái Pending hoặc ContainerCreating. API Server vẫn hoạt động nhưng Pod networking trong cluster không hoàn chỉnh.</div>
+            </div>
+            <div class="quiz-item">
+              <p class="quiz-q">7. kubelet chạy dưới dạng gì trên mỗi node?</p>
+              <div class="quiz-options">
+                <button class="quiz-opt" data-correct="false">A. Một Kubernetes Pod trong namespace kube-system</button>
+                <button class="quiz-opt" data-correct="false">B. Một DaemonSet</button>
+                <button class="quiz-opt" data-correct="true">C. Một systemd service chạy trực tiếp trên OS</button>
+                <button class="quiz-opt" data-correct="false">D. Một Docker container</button>
+              </div>
+              <div class="quiz-explain hidden">✅ <strong>Đáp án C:</strong> kubelet là thành phần duy nhất trong Kubernetes không chạy như một Pod. Nó chạy như systemd service trực tiếp trên OS của node. Đây là lý do kubelet có thể quản lý Static Pod và bootstrap cluster.</div>
+            </div>
+            <div class="quiz-item">
+              <p class="quiz-q">8. Thành phần nào thực sự tạo và chạy container bên dưới kubelet?</p>
+              <div class="quiz-options">
+                <button class="quiz-opt" data-correct="false">A. kube-proxy</button>
+                <button class="quiz-opt" data-correct="false">B. kube-scheduler</button>
+                <button class="quiz-opt" data-correct="true">C. Container Runtime (containerd + runc)</button>
+                <button class="quiz-opt" data-correct="false">D. CoreDNS</button>
+              </div>
+              <div class="quiz-explain hidden">✅ <strong>Đáp án C:</strong> kubelet giao tiếp với containerd qua CRI interface. containerd kéo image, tạo snapshot, cấu hình mạng rồi gọi runc để tạo container process thực sự theo chuẩn OCI.</div>
             </div>
           </div>
         </section>
       </article>
 
-      <!-- ========== BÀI 02 ========== -->
+            <!-- ========== BÀI 02 ========== -->
       <article class="lesson-content" id="lesson-1">
         <div class="lesson-hero">
           <div class="hero-badge">Bài 02</div>
