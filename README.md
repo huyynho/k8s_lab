@@ -1,6 +1,6 @@
 # K8s Foundation — Kubernetes Learning
 
-Lộ trình học Kubernetes từ cơ bản → nâng cao, tập trung thực hành deploy và vận hành hệ thống.
+https://huyln-k8s-lab.vercel.app/
 
 ---
 
