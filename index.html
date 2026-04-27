@@ -36,10 +36,9 @@
           <span class="lesson-num">03</span>
           <span class="lesson-title">Kubernetes Workloads</span>
         </li>
-        <li class="lesson-item coming-soon" data-lesson="3">
+        <li class="lesson-item" data-lesson="3">
           <span class="lesson-num">04</span>
-          <span class="lesson-title">Kubernetes Networking</span>
-          <span class="badge-soon">Sắp ra</span>
+          <span class="lesson-title">Kubernetes Service & Networking</span>
         </li>
         <li class="lesson-item coming-soon" data-lesson="4">
           <span class="lesson-num">05</span>
@@ -1599,7 +1598,6 @@ kubectl get nodes -o wide</code></pre>
             <div class="info-chip"><span class="chip-label">Công cụ</span><span class="chip-val">kubectl</span></div>
             <div class="info-chip"><span class="chip-label">K8S</span><span class="chip-val">v1.35</span></div>
             <div class="info-chip"><span class="chip-label">Namespace</span><span class="chip-val">default</span></div>
-            <div class="info-chip"><span class="chip-label">Độ khó</span><span class="chip-val">Trung bình</span></div>
           </div>
         </div>
 
@@ -3004,6 +3002,1177 @@ kubectl delete job backup-manual-test</code></pre>
                 <button class="quiz-opt" data-correct="false">D. kubectl apply -f cronjob-backup.yaml --force</button>
               </div>
               <div class="quiz-explain hidden">✅ <strong>Đáp án C:</strong> <code>kubectl create job &lt;name&gt; --from=cronjob/&lt;cronjob-name&gt;</code> tạo ngay 1 Job từ jobTemplate của CronJob chỉ định, không cần chờ đến lịch. Rất hữu ích để test CronJob.</div>
+            </div>
+          </div>
+        </section>
+      </article>
+
+      <!-- ========== BÀI 04 ========== -->
+      <article class="lesson-content" id="lesson-3">
+        <div class="lesson-hero">
+          <div class="hero-badge">Bài 04</div>
+          <h1 class="lesson-h1">Kubernetes Service &amp; Networking</h1>
+          <p class="lesson-subtitle">Hiểu mô hình mạng trong K8S, các loại Service và DNS nội bộ — nền tảng để kết nối ứng dụng trong cluster</p>
+          <div class="lesson-info-grid">
+            <div class="info-chip"><span class="chip-label">CNI</span><span class="chip-val">Calico</span></div>
+            <div class="info-chip"><span class="chip-label">DNS</span><span class="chip-val">CoreDNS</span></div>
+            <div class="info-chip"><span class="chip-label">Proxy</span><span class="chip-val">kube-proxy / iptables</span></div>
+          </div>
+        </div>
+
+        <!-- MỤC TIÊU -->
+        <section class="lesson-section">
+          <h2>🎯 Mục tiêu buổi học</h2>
+          <ul class="goal-list">
+            <li>Hiểu mô hình mạng phẳng (flat network) của Kubernetes — mọi Pod đều có thể nói chuyện với nhau</li>
+            <li>Hiểu cách CNI plugin (Calico) cấp IP và định tuyến giữa các Pod trên nhiều node</li>
+            <li>Phân biệt 4 loại Service: ClusterIP, NodePort, LoadBalancer, ExternalName và Headless</li>
+            <li>Hiểu cơ chế kube-proxy và iptables/IPVS trong việc forward traffic đến Service</li>
+            <li>Hiểu CoreDNS — cơ chế DNS discovery nội bộ trong cluster</li>
+            <li>Thực hành tạo, test từng loại Service và quan sát DNS resolution</li>
+            <li>Hiểu NetworkPolicy — kiểm soát lưu lượng mạng giữa Pod</li>
+          </ul>
+        </section>
+
+        <!-- PHẦN 1: MÔ HÌNH MẠNG K8S -->
+        <section class="lesson-section">
+          <h2>Phần 1: Mô hình mạng Kubernetes</h2>
+          <p>Kubernetes có một mô hình mạng đơn giản nhưng rất mạnh mẽ: <strong>mọi Pod có thể giao tiếp trực tiếp với mọi Pod khác trong cluster, bất kể chúng đang chạy trên node nào</strong>. Không cần NAT, không cần port mapping thủ công.</p>
+
+          <h3>1.1 Ba lớp mạng trong Kubernetes</h3>
+          <div class="code-block">
+            <div class="code-header"><span class="code-lang">text – Ba lớp địa chỉ IP</span><button class="copy-btn" data-code="Lớp 1: Node Network (vật lý / VM)
+  master-01:   10.236.0.10/24
+  worker-01:   10.236.0.11/24
+  worker-02:   10.236.0.12/24
+  → Đây là IP thực của máy chủ, do hạ tầng cấp
+
+Lớp 2: Pod Network (do CNI Plugin quản lý — Calico)
+  Pod A trên worker-01:  192.168.154.243/32
+  Pod B trên worker-01:  192.168.154.244/32
+  Pod C trên worker-02:  192.168.44.215/32
+  → Mỗi Pod nhận 1 IP duy nhất, định tuyến qua Calico
+
+Lớp 3: Service Network (virtual IP — do kube-proxy quản lý)
+  ClusterIP Service:     10.96.x.x/12  (ví dụ: 10.102.161.178)
+  kube-dns Service:      10.96.0.10
+  → IP ảo, không gắn với interface thật, xử lý bởi iptables/IPVS">Sao chép</button></div>
+            <pre><code>Lớp 1: Node Network (vật lý / VM)
+  master-01:   10.236.0.10/24
+  worker-01:   10.236.0.11/24
+  worker-02:   10.236.0.12/24
+  → Đây là IP thực của máy chủ, do hạ tầng cấp
+
+Lớp 2: Pod Network (do CNI Plugin quản lý — Calico)
+  Pod A trên worker-01:  192.168.154.243/32
+  Pod B trên worker-01:  192.168.154.244/32
+  Pod C trên worker-02:  192.168.44.215/32
+  → Mỗi Pod nhận 1 IP duy nhất, định tuyến qua Calico
+
+Lớp 3: Service Network (virtual IP — do kube-proxy quản lý)
+  ClusterIP Service:     10.96.x.x/12  (ví dụ: 10.102.161.178)
+  kube-dns Service:      10.96.0.10
+  → IP ảo, không gắn với interface thật, xử lý bởi iptables/IPVS</code></pre>
+          </div>
+
+          <h3>1.2 Quy tắc mạng Kubernetes</h3>
+          <div class="node-table-wrap">
+            <table class="node-table">
+              <thead><tr><th>Quy tắc</th><th>Ý nghĩa thực tế</th></tr></thead>
+              <tbody>
+                <tr><td>Pod ↔ Pod (cùng node)</td><td>Giao tiếp qua virtual ethernet (veth pair) và Linux bridge</td></tr>
+                <tr><td>Pod ↔ Pod (khác node)</td><td>Giao tiếp qua CNI overlay (Calico VXLAN/BGP), không cần NAT</td></tr>
+                <tr><td>Pod → Service</td><td>iptables/IPVS trên node chặn và DNAT đến Pod phía sau</td></tr>
+                <tr><td>External → Pod</td><td>Phải qua Service (NodePort/LoadBalancer) hoặc Ingress</td></tr>
+                <tr><td>Không có NAT</td><td>IP nguồn của Pod giữ nguyên khi đến Pod đích</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <h3>1.3 Quan sát mạng thực tế</h3>
+          <p class="code-desc">Xem IP của tất cả node trong cluster. Cột <code>INTERNAL-IP</code> là IP vật lý của node — đây là lớp mạng node network. Trong môi trường cloud, <code>EXTERNAL-IP</code> là IP public:</p>
+          <div class="code-block">
+            <div class="code-header"><span class="code-lang">bash</span><button class="copy-btn" data-code="kubectl get nodes -o wide">Sao chép</button></div>
+            <pre><code>kubectl get nodes -o wide</code></pre>
+          </div>
+
+          <p class="code-desc">Deploy workload với 3 replica và quan sát IP của từng Pod. Chú ý: các Pod trên cùng node có IP trong cùng subnet (<code>192.168.154.x</code>), Pod trên node khác có IP thuộc subnet khác (<code>192.168.44.x</code>) — đây là cách Calico phân chia IP block theo node:</p>
+          <div class="code-block">
+            <div class="code-header"><span class="code-lang">bash</span><button class="copy-btn" data-code="kubectl apply -f Deployment.yaml
+kubectl get pods -o wide
+
+# Output mẫu:
+# NAME                           READY   IP                NODE
+# hello-world-75d6d8cfd7-bxqj7   1/1     192.168.154.243   k8s-node-01
+# hello-world-75d6d8cfd7-p2559   1/1     192.168.44.215    k8s-node-02
+# hello-world-75d6d8cfd7-qlzjw   1/1     192.168.154.244   k8s-node-01">Sao chép</button></div>
+            <pre><code>kubectl apply -f Deployment.yaml
+kubectl get pods -o wide
+
+# Output mẫu:
+# NAME                           READY   IP                NODE
+# hello-world-75d6d8cfd7-bxqj7   1/1     192.168.154.243   k8s-node-01
+# hello-world-75d6d8cfd7-p2559   1/1     192.168.44.215    k8s-node-02
+# hello-world-75d6d8cfd7-qlzjw   1/1     192.168.154.244   k8s-node-01</code></pre>
+          </div>
+
+          <p class="code-desc">Vào trong Pod và kiểm tra cấu hình mạng. Interface <code>eth0</code> là virtual ethernet pair kết nối Pod vào network namespace của node. IP <code>/32</code> (không phải /24) là đặc trưng của Calico — mỗi Pod là một host riêng biệt trong routing table:</p>
+          <div class="code-block">
+            <div class="code-header"><span class="code-lang">bash</span><button class="copy-btn" data-code="# Vào Pod và kiểm tra network interface
+kubectl exec -it &lt;POD_NAME&gt; -- ip addr
+
+# Kết quả: eth0 với IP /32 — đặc trưng của Calico
+# 3: eth0@if57: inet 192.168.154.243/32
+
+# Test Pod-to-Pod connectivity (thay IP bằng IP của Pod khác)
+kubectl exec -it &lt;POD_NAME&gt; -- ping 192.168.44.215 -c 3">Sao chép</button></div>
+            <pre><code># Vào Pod và kiểm tra network interface
+kubectl exec -it &lt;POD_NAME&gt; -- ip addr
+
+# Kết quả: eth0 với IP /32 — đặc trưng của Calico
+# 3: eth0@if57: inet 192.168.154.243/32
+
+# Test Pod-to-Pod connectivity (thay IP bằng IP của Pod khác)
+kubectl exec -it &lt;POD_NAME&gt; -- ping 192.168.44.215 -c 3</code></pre>
+          </div>
+
+          <p class="code-desc">SSH vào worker node và xem routing table của OS. Calico tạo các route cho từng Pod (<code>cali*</code> interface) và route cho Pod subnet của node khác (qua <code>k8s-node-02</code> gateway). Đây là cơ chế BGP routing của Calico:</p>
+          <div class="code-block">
+            <div class="code-header"><span class="code-lang">bash</span><button class="copy-btn" data-code="# SSH vào worker node
+ssh worker-01
+
+# Xem routing table — Calico thêm route cho từng Pod
+route -n
+# 192.168.154.243  0.0.0.0  255.255.255.255  UH  0  0  0  cali6833ab5953b
+# 192.168.154.244  0.0.0.0  255.255.255.255  UH  0  0  0  cali72039afe81f
+# 192.168.44.192   10.236.0.12  255.255.255.192  UG  0  0  0  ens160
+#                  ↑ Route đến Pod subnet trên node-02 qua node-02 IP
+
+# Xem Calico interfaces
+ip link show | grep cali">Sao chép</button></div>
+            <pre><code># SSH vào worker node
+ssh worker-01
+
+# Xem routing table — Calico thêm route cho từng Pod
+route -n
+# 192.168.154.243  0.0.0.0  255.255.255.255  UH  0  0  0  cali6833ab5953b
+# 192.168.154.244  0.0.0.0  255.255.255.255  UH  0  0  0  cali72039afe81f
+# 192.168.44.192   10.236.0.12  255.255.255.192  UG  0  0  0  ens160
+#                  ↑ Route đến Pod subnet trên node-02 qua node-02 IP
+
+# Xem Calico interfaces
+ip link show | grep cali</code></pre>
+          </div>
+        </section>
+
+        <!-- PHẦN 2: CALICO CNI -->
+        <section class="lesson-section">
+          <h2>Phần 2: Calico CNI — Cơ chế hoạt động chi tiết</h2>
+          <p>Calico là CNI plugin phổ biến, dùng BGP (Border Gateway Protocol) hoặc VXLAN để định tuyến traffic giữa Pod trên các node khác nhau. Lab này dùng Calico với VXLAN overlay.</p>
+
+          <h3>2.1 Luồng gói tin Pod A → Pod B (khác node)</h3>
+          <div class="code-block">
+            <div class="code-header"><span class="code-lang">text – Luồng packet cross-node</span><button class="copy-btn" data-code="Pod A (192.168.154.243) trên worker-01
+  │  Gói tin gửi đến 192.168.44.215 (Pod B)
+  ▼
+veth pair: cali6833ab5953b ← kết nối Pod A vào node network
+  │  Kernel tra routing table trên worker-01
+  │  Route: 192.168.44.192/26 via 10.236.0.12 (worker-02)
+  ▼
+vxlan.calico interface (IP: 192.168.154.192)
+  │  VXLAN encapsulation: bọc gói tin gốc vào UDP/VXLAN frame
+  │  Outer IP: src=10.236.0.11 dst=10.236.0.12 (node IPs)
+  ▼
+ens160 (10.236.0.11) → ens160 (10.236.0.12) qua node network
+  │  VXLAN decapsulation tại worker-02
+  ▼
+cali interface trên worker-02 → Pod B (192.168.44.215)
+
+Kết quả: Pod A thấy mình giao tiếp trực tiếp với Pod B
+         Không có NAT — IP nguồn giữ nguyên 192.168.154.243">Sao chép</button></div>
+            <pre><code>Pod A (192.168.154.243) trên worker-01
+  │  Gói tin gửi đến 192.168.44.215 (Pod B)
+  ▼
+veth pair: cali6833ab5953b ← kết nối Pod A vào node network
+  │  Kernel tra routing table trên worker-01
+  │  Route: 192.168.44.192/26 via 10.236.0.12 (worker-02)
+  ▼
+vxlan.calico interface (IP: 192.168.154.192)
+  │  VXLAN encapsulation: bọc gói tin gốc vào UDP/VXLAN frame
+  │  Outer IP: src=10.236.0.11 dst=10.236.0.12 (node IPs)
+  ▼
+ens160 (10.236.0.11) → ens160 (10.236.0.12) qua node network
+  │  VXLAN decapsulation tại worker-02
+  ▼
+cali interface trên worker-02 → Pod B (192.168.44.215)
+
+Kết quả: Pod A thấy mình giao tiếp trực tiếp với Pod B
+         Không có NAT — IP nguồn giữ nguyên 192.168.154.243</code></pre>
+          </div>
+
+          <h3>2.2 Vấn đề khi chỉ dùng Pod IP trực tiếp</h3>
+          <div class="info-box">
+            <div class="info-box-title">⚠️ Tại sao không dùng Pod IP để giao tiếp?</div>
+            <p style="margin:0;font-size:13.5px;color:#1e40af;line-height:1.8">
+              Pod IP là <strong>ephemeral (tạm thời)</strong> — khi Pod bị xóa và tạo lại (crash, rolling update, reschedule), IP sẽ thay đổi hoàn toàn. Không có cơ chế nào đảm bảo Pod giữ nguyên IP sau khi recreate. Đây là lý do cần <strong>Service</strong> — một địa chỉ IP ổn định đứng trước một nhóm Pod và tự động load balance traffic đến các Pod đang sống.
+            </p>
+          </div>
+        </section>
+
+        <!-- PHẦN 3: SERVICE -->
+        <section class="lesson-section">
+          <h2>Phần 3: Kubernetes Service — Địa chỉ ổn định cho Pod</h2>
+          <p>Service là resource cung cấp một địa chỉ IP và DNS name ổn định cho một nhóm Pod. Service dùng <strong>Label Selector</strong> để tìm Pod phía sau, và <strong>kube-proxy</strong> để forward traffic đến đúng Pod.</p>
+
+          <h3>3.1 Cơ chế hoạt động của Service</h3>
+          <div class="code-block">
+            <div class="code-header"><span class="code-lang">text – Cơ chế Service + Endpoints</span><button class="copy-btn" data-code="Service: hello-world (ClusterIP: 10.102.161.178, port: 8080)
+  │  Label Selector: app=hello-world
+  │
+  ▼
+Endpoints object (tự động cập nhật)
+  ├── 192.168.154.243:80  (Pod A — Running, Healthy)
+  ├── 192.168.44.215:80   (Pod B — Running, Healthy)
+  └── 192.168.154.244:80  (Pod C — Running, Healthy)
+  [Pod D đang Terminating → bị xóa khỏi Endpoints ngay]
+
+kube-proxy trên mỗi node (watch API Server liên tục)
+  → Khi Endpoints thay đổi, cập nhật iptables rules ngay
+  → iptables DNAT: 10.102.161.178:8080 → random Pod IP:80
+
+Traffic flow:
+  Client → 10.102.161.178:8080 (ClusterIP)
+         → iptables DNAT → 192.168.154.243:80 (Pod A)">Sao chép</button></div>
+            <pre><code>Service: hello-world (ClusterIP: 10.102.161.178, port: 8080)
+  │  Label Selector: app=hello-world
+  │
+  ▼
+Endpoints object (tự động cập nhật)
+  ├── 192.168.154.243:80  (Pod A — Running, Healthy)
+  ├── 192.168.44.215:80   (Pod B — Running, Healthy)
+  └── 192.168.154.244:80  (Pod C — Running, Healthy)
+  [Pod D đang Terminating → bị xóa khỏi Endpoints ngay]
+
+kube-proxy trên mỗi node (watch API Server liên tục)
+  → Khi Endpoints thay đổi, cập nhật iptables rules ngay
+  → iptables DNAT: 10.102.161.178:8080 → random Pod IP:80
+
+Traffic flow:
+  Client → 10.102.161.178:8080 (ClusterIP)
+         → iptables DNAT → 192.168.154.243:80 (Pod A)</code></pre>
+          </div>
+
+          <h3>3.2 Tổng quan 5 loại Service</h3>
+          <div class="node-table-wrap">
+            <table class="node-table">
+              <thead><tr><th>Loại Service</th><th>Truy cập từ đâu</th><th>Dùng khi nào</th></tr></thead>
+              <tbody>
+                <tr><td><code>ClusterIP</code></td><td>Chỉ bên trong cluster</td><td>Giao tiếp nội bộ giữa các service</td></tr>
+                <tr><td><code>NodePort</code></td><td>Bên ngoài qua IP:Port của node</td><td>Dev/test, không có Load Balancer</td></tr>
+                <tr><td><code>LoadBalancer</code></td><td>Bên ngoài qua External IP</td><td>Production trên cloud (AWS ELB, GCP LB...)</td></tr>
+                <tr><td><code>ExternalName</code></td><td>DNS alias đến external host</td><td>Alias cho service bên ngoài cluster</td></tr>
+                <tr><td><code>Headless</code></td><td>DNS trả về Pod IP trực tiếp</td><td>StatefulSet, service discovery tùy chỉnh</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <!-- PHẦN 4: CLUSTERIP -->
+        <section class="lesson-section">
+          <h2>Phần 4: ClusterIP — Service mặc định</h2>
+          <p>ClusterIP là loại Service mặc định. Kubernetes cấp một IP ảo (Virtual IP) chỉ có thể truy cập từ <strong>bên trong cluster</strong>. Đây là loại dùng phổ biến nhất để kết nối giữa các microservice.</p>
+
+          <div class="code-block">
+            <div class="code-header"><span class="code-lang">text – Cấu trúc ClusterIP</span><button class="copy-btn" data-code="Bên ngoài cluster
+      ✗ Không thể truy cập ClusterIP từ bên ngoài
+
+Bên trong cluster (Pod, node)
+      ✓ Pod A → ClusterIP 10.102.161.178:8080 → kube-proxy → Pod B/C/D
+
+ClusterIP flow:
+  1. Nguồn: Pod A gửi đến 10.102.161.178:8080
+  2. iptables PREROUTING: DNAT → Pod B IP (random, round-robin)
+  3. Packet đến Pod B:80
+  4. Reply đi ngược lại (conntrack tự track session)">Sao chép</button></div>
+            <pre><code>Bên ngoài cluster
+      ✗ Không thể truy cập ClusterIP từ bên ngoài
+
+Bên trong cluster (Pod, node)
+      ✓ Pod A → ClusterIP 10.102.161.178:8080 → kube-proxy → Pod B/C/D
+
+ClusterIP flow:
+  1. Nguồn: Pod A gửi đến 10.102.161.178:8080
+  2. iptables PREROUTING: DNAT → Pod B IP (random, round-robin)
+  3. Packet đến Pod B:80
+  4. Reply đi ngược lại (conntrack tự track session)</code></pre>
+          </div>
+
+          <p class="code-desc">Manifest ClusterIP Service. <code>port</code> là port Service lắng nghe, <code>targetPort</code> là port thực tế của container. Selector <code>robusta: web-app</code> xác định nhóm Pod phía sau Service:</p>
+          <div class="code-block">
+            <div class="code-header"><span class="code-lang">yaml – 1-clusterip.yaml</span><button class="copy-btn" data-code="apiVersion: v1
+kind: Service
+metadata:
+  name: robusta-svc-01
+spec:
+  type: ClusterIP          # Mặc định — có thể bỏ qua field này
+  ports:
+    - port: 8080           # Port Service lắng nghe (client kết nối vào đây)
+      targetPort: 80       # Port container thực sự đang chạy
+      protocol: TCP
+  selector:
+    robusta: web-app       # Chỉ forward đến Pod có label này">Sao chép</button></div>
+            <pre><code>apiVersion: v1
+kind: Service
+metadata:
+  name: robusta-svc-01
+spec:
+  type: ClusterIP          # Mặc định — có thể bỏ qua field này
+  ports:
+    - port: 8080           # Port Service lắng nghe (client kết nối vào đây)
+      targetPort: 80       # Port container thực sự đang chạy
+      protocol: TCP
+  selector:
+    robusta: web-app       # Chỉ forward đến Pod có label này</code></pre>
+          </div>
+
+          <p class="code-desc">Tạo Service và kiểm tra. Lệnh <code>get endpoints</code> cho thấy danh sách Pod IP thực sự đằng sau Service. <code>describe</code> xem selector, port mapping và endpoint details:</p>
+          <div class="code-block">
+            <div class="code-header"><span class="code-lang">bash</span><button class="copy-btn" data-code="kubectl apply -f 1-clusterip.yaml
+
+# Xem Service — cột CLUSTER-IP, PORT(S)
+kubectl get service robusta-svc-01
+
+# Xem Endpoints — danh sách Pod IP thực sự phía sau Service
+kubectl get endpoints robusta-svc-01
+
+# Chi tiết Service: Selector, TargetPort, Endpoints
+kubectl describe service robusta-svc-01
+
+# Test từ bên trong cluster (chạy busybox Pod tạm)
+kubectl run -it --rm test --image=busybox -- wget -qO- http://robusta-svc-01:8080">Sao chép</button></div>
+            <pre><code>kubectl apply -f 1-clusterip.yaml
+
+# Xem Service — cột CLUSTER-IP, PORT(S)
+kubectl get service robusta-svc-01
+
+# Xem Endpoints — danh sách Pod IP thực sự phía sau Service
+kubectl get endpoints robusta-svc-01
+
+# Chi tiết Service: Selector, TargetPort, Endpoints
+kubectl describe service robusta-svc-01
+
+# Test từ bên trong cluster (chạy busybox Pod tạm)
+kubectl run -it --rm test --image=busybox -- wget -qO- http://robusta-svc-01:8080</code></pre>
+          </div>
+        </section>
+
+        <!-- PHẦN 5: NODEPORT -->
+        <section class="lesson-section">
+          <h2>Phần 5: NodePort — Expose ra bên ngoài qua Node</h2>
+          <p>NodePort mở một port cố định trên <strong>tất cả node</strong> trong cluster (kể cả master). Traffic đến <code>&lt;NodeIP&gt;:&lt;nodePort&gt;</code> sẽ được forward đến Service, sau đó đến Pod. NodePort bao gồm ClusterIP — có nghĩa là vẫn có thể truy cập nội bộ qua ClusterIP.</p>
+
+          <div class="code-block">
+            <div class="code-header"><span class="code-lang">text – NodePort traffic flow</span><button class="copy-btn" data-code="Bên ngoài cluster (browser, curl, external tool)
+      ↓  http://10.236.0.11:30080  (worker-01 IP : nodePort)
+      ↓  http://10.236.0.12:30080  (worker-02 IP : nodePort) — cả hai đều hoạt động!
+      ↓  http://10.236.0.10:30080  (master IP : nodePort)    — kể cả master
+
+kube-proxy trên node nhận request
+      → iptables forward đến ClusterIP:8080
+      → ClusterIP DNAT đến Pod IP:80
+
+Port ranges:
+  nodePort: 30000-32767   ← range mặc định, có thể cấu hình lại
+  Không được dùng port ngoài range này">Sao chép</button></div>
+            <pre><code>Bên ngoài cluster (browser, curl, external tool)
+      ↓  http://10.236.0.11:30080  (worker-01 IP : nodePort)
+      ↓  http://10.236.0.12:30080  (worker-02 IP : nodePort) — cả hai đều hoạt động!
+      ↓  http://10.236.0.10:30080  (master IP : nodePort)    — kể cả master
+
+kube-proxy trên node nhận request
+      → iptables forward đến ClusterIP:8080
+      → ClusterIP DNAT đến Pod IP:80
+
+Port ranges:
+  nodePort: 30000-32767   ← range mặc định, có thể cấu hình lại
+  Không được dùng port ngoài range này</code></pre>
+          </div>
+
+          <p class="code-desc">Manifest NodePort Service. Ba port cần phân biệt: <code>port</code> (ClusterIP port), <code>targetPort</code> (container port), <code>nodePort</code> (port mở trên mỗi node). Nếu không chỉ định <code>nodePort</code>, Kubernetes sẽ tự chọn ngẫu nhiên trong range 30000-32767:</p>
+          <div class="code-block">
+            <div class="code-header"><span class="code-lang">yaml – 2-nodeport.yaml</span><button class="copy-btn" data-code="apiVersion: v1
+kind: Service
+metadata:
+  name: robusta-svc-02
+spec:
+  type: NodePort
+  ports:
+    - port: 8080          # ClusterIP port (giao tiếp nội bộ)
+      targetPort: 80      # Container port
+      nodePort: 30080     # Port mở trên mỗi node (30000-32767)
+      protocol: TCP
+  selector:
+    robusta: web-app">Sao chép</button></div>
+            <pre><code>apiVersion: v1
+kind: Service
+metadata:
+  name: robusta-svc-02
+spec:
+  type: NodePort
+  ports:
+    - port: 8080          # ClusterIP port (giao tiếp nội bộ)
+      targetPort: 80      # Container port
+      nodePort: 30080     # Port mở trên mỗi node (30000-32767)
+      protocol: TCP
+  selector:
+    robusta: web-app</code></pre>
+          </div>
+
+          <p class="code-desc">Tạo NodePort Service và test từ bên ngoài cluster. Output của <code>get service</code> sẽ hiện <code>PORT(S): 8080:30080/TCP</code> — nghĩa là ClusterIP port 8080 map với nodePort 30080:</p>
+          <div class="code-block">
+            <div class="code-header"><span class="code-lang">bash</span><button class="copy-btn" data-code="kubectl apply -f 2-nodeport.yaml
+
+# Xem Service — PORT(S) hiện dạng 8080:30080/TCP
+kubectl get service robusta-svc-02
+
+# Test từ bên ngoài cluster (thay NODE_IP bằng IP thực của node)
+curl http://NODE_IP:30080
+
+# Test từ bất kỳ node nào trong cluster
+curl http://10.236.0.11:30080  # worker-01
+curl http://10.236.0.12:30080  # worker-02
+curl http://10.236.0.10:30080  # master — cũng hoạt động!">Sao chép</button></div>
+            <pre><code>kubectl apply -f 2-nodeport.yaml
+
+# Xem Service — PORT(S) hiện dạng 8080:30080/TCP
+kubectl get service robusta-svc-02
+
+# Test từ bên ngoài cluster (thay NODE_IP bằng IP thực của node)
+curl http://NODE_IP:30080
+
+# Test từ bất kỳ node nào trong cluster
+curl http://10.236.0.11:30080  # worker-01
+curl http://10.236.0.12:30080  # worker-02
+curl http://10.236.0.10:30080  # master — cũng hoạt động!</code></pre>
+          </div>
+
+          <div class="info-box">
+            <div class="info-box-title">⚠️ Hạn chế của NodePort trong production</div>
+            <p style="margin:0;font-size:13.5px;color:#1e40af;line-height:1.8">NodePort phụ thuộc vào IP của node — nếu node down, những ai đang dùng IP đó sẽ mất kết nối. Không có tính năng health check ở lớp external. Trong production trên cloud, dùng <strong>LoadBalancer</strong> thay thế. Trong on-premise không có cloud LB, có thể dùng <strong>MetalLB</strong> + LoadBalancer, hoặc <strong>Ingress Controller</strong> (sẽ học ở buổi sau).</p>
+          </div>
+        </section>
+
+        <!-- PHẦN 6: LOADBALANCER -->
+        <section class="lesson-section">
+          <h2>Phần 6: LoadBalancer — External IP từ Cloud</h2>
+          <p>LoadBalancer là loại Service yêu cầu cloud provider tạo một load balancer thật sự (AWS ELB, GCP Load Balancer, Azure LB). Kubernetes gọi cloud provider API và nhận lại External IP. Traffic từ internet → External IP → NodePort → ClusterIP → Pod.</p>
+
+          <div class="code-block">
+            <div class="code-header"><span class="code-lang">text – LoadBalancer traffic flow</span><button class="copy-btn" data-code="Internet
+      ↓  http://203.0.113.10:80  (External IP do cloud cấp)
+      ↓
+Cloud Load Balancer (AWS ELB / GCP LB / Azure LB)
+      ↓  health check node, round-robin giữa các healthy node
+      ↓  → 10.236.0.11:30080  (worker-01)
+      ↓    10.236.0.12:30080  (worker-02)
+      ↓
+kube-proxy → ClusterIP → Pod
+
+LoadBalancer tự động tạo NodePort phía sau:
+  LoadBalancer (External IP) → NodePort (30000-32767) → ClusterIP → Pod
+
+Trong on-premise không có cloud:
+  type: LoadBalancer → Service sẽ pending EXTERNAL-IP mãi
+  Giải pháp: dùng MetalLB để giả lập cloud LB trong on-premise">Sao chép</button></div>
+            <pre><code>Internet
+      ↓  http://203.0.113.10:80  (External IP do cloud cấp)
+      ↓
+Cloud Load Balancer (AWS ELB / GCP LB / Azure LB)
+      ↓  health check node, round-robin giữa các healthy node
+      ↓  → 10.236.0.11:30080  (worker-01)
+      ↓    10.236.0.12:30080  (worker-02)
+      ↓
+kube-proxy → ClusterIP → Pod
+
+LoadBalancer tự động tạo NodePort phía sau:
+  LoadBalancer (External IP) → NodePort (30000-32767) → ClusterIP → Pod
+
+Trong on-premise không có cloud:
+  type: LoadBalancer → Service sẽ pending EXTERNAL-IP mãi
+  Giải pháp: dùng MetalLB để giả lập cloud LB trong on-premise</code></pre>
+          </div>
+
+          <p class="code-desc">Manifest LoadBalancer Service — chỉ thay đổi <code>type</code> so với NodePort. Trên cloud, Kubernetes sẽ tự động tạo External Load Balancer và điền <code>EXTERNAL-IP</code>. Trên on-premise lab sẽ thấy <code>&lt;pending&gt;</code>:</p>
+          <div class="code-block">
+            <div class="code-header"><span class="code-lang">yaml – loadbalancer.yaml</span><button class="copy-btn" data-code="apiVersion: v1
+kind: Service
+metadata:
+  name: robusta-svc-lb
+spec:
+  type: LoadBalancer        # Cloud provider sẽ tạo LB và cấp External IP
+  ports:
+    - port: 80
+      targetPort: 80
+      protocol: TCP
+  selector:
+    robusta: web-app">Sao chép</button></div>
+            <pre><code>apiVersion: v1
+kind: Service
+metadata:
+  name: robusta-svc-lb
+spec:
+  type: LoadBalancer        # Cloud provider sẽ tạo LB và cấp External IP
+  ports:
+    - port: 80
+      targetPort: 80
+      protocol: TCP
+  selector:
+    robusta: web-app</code></pre>
+          </div>
+
+          <p class="code-desc">Tạo Service và quan sát trạng thái <code>EXTERNAL-IP</code>. Trên cloud sẽ thấy IP xuất hiện sau vài phút. Trên on-premise lab sẽ hiện <code>&lt;pending&gt;</code> vì không có cloud provider:</p>
+          <div class="code-block">
+            <div class="code-header"><span class="code-lang">bash</span><button class="copy-btn" data-code="kubectl apply -f loadbalancer.yaml
+
+# Watch cho đến khi EXTERNAL-IP xuất hiện (trên cloud)
+kubectl get service robusta-svc-lb --watch
+
+# Trên on-premise: EXTERNAL-IP sẽ &lt;pending&gt; mãi
+# Cần cài MetalLB để giải quyết
+
+# Nếu có EXTERNAL-IP, test từ internet:
+# curl http://EXTERNAL_IP:80">Sao chép</button></div>
+            <pre><code>kubectl apply -f loadbalancer.yaml
+
+# Watch cho đến khi EXTERNAL-IP xuất hiện (trên cloud)
+kubectl get service robusta-svc-lb --watch
+
+# Trên on-premise: EXTERNAL-IP sẽ &lt;pending&gt; mãi
+# Cần cài MetalLB để giải quyết
+
+# Nếu có EXTERNAL-IP, test từ internet:
+# curl http://EXTERNAL_IP:80</code></pre>
+          </div>
+        </section>
+
+        <!-- PHẦN 7: HEADLESS -->
+        <section class="lesson-section">
+          <h2>Phần 7: Headless Service — DNS trực tiếp đến Pod</h2>
+          <p>Headless Service được tạo bằng cách set <code>clusterIP: None</code>. Khi query DNS của Headless Service, CoreDNS trả về <strong>danh sách IP của tất cả Pod</strong> phía sau, không phải ClusterIP. Không có load balancing qua iptables — client tự chọn Pod.</p>
+
+          <div class="code-block">
+            <div class="code-header"><span class="code-lang">text – Headless vs ClusterIP DNS</span><button class="copy-btn" data-code="=== ClusterIP Service ===
+DNS query: robusta-svc-01.default.svc.cluster.local
+DNS response: 10.102.161.178  ← 1 IP duy nhất (ClusterIP)
+kube-proxy load balance đến Pod phía sau
+
+=== Headless Service ===
+DNS query: robusta-svc-03.default.svc.cluster.local
+DNS response:
+  192.168.154.243   ← Pod A IP
+  192.168.44.215    ← Pod B IP
+  192.168.154.244   ← Pod C IP
+Client nhận tất cả IP và tự quyết định kết nối đến Pod nào
+
+=== StatefulSet với Headless ===
+DNS query: mysql-0.mysql-svc.default.svc.cluster.local → IP của mysql-0
+DNS query: mysql-1.mysql-svc.default.svc.cluster.local → IP của mysql-1
+Mỗi Pod có DNS riêng và ổn định → critical cho distributed systems">Sao chép</button></div>
+            <pre><code>=== ClusterIP Service ===
+DNS query: robusta-svc-01.default.svc.cluster.local
+DNS response: 10.102.161.178  ← 1 IP duy nhất (ClusterIP)
+kube-proxy load balance đến Pod phía sau
+
+=== Headless Service ===
+DNS query: robusta-svc-03.default.svc.cluster.local
+DNS response:
+  192.168.154.243   ← Pod A IP
+  192.168.44.215    ← Pod B IP
+  192.168.154.244   ← Pod C IP
+Client nhận tất cả IP và tự quyết định kết nối đến Pod nào
+
+=== StatefulSet với Headless ===
+DNS query: mysql-0.mysql-svc.default.svc.cluster.local → IP của mysql-0
+DNS query: mysql-1.mysql-svc.default.svc.cluster.local → IP của mysql-1
+Mỗi Pod có DNS riêng và ổn định → critical cho distributed systems</code></pre>
+          </div>
+
+          <p class="code-desc">Manifest Headless Service — chỉ cần set <code>clusterIP: None</code>. Không có <code>type</code> field và không có ClusterIP được cấp. Vẫn dùng <code>selector</code> để Kubernetes biết Pod nào thuộc về Service này:</p>
+          <div class="code-block">
+            <div class="code-header"><span class="code-lang">yaml – 3-headless.yaml</span><button class="copy-btn" data-code="apiVersion: v1
+kind: Service
+metadata:
+  name: robusta-svc-03
+spec:
+  clusterIP: None      # Đây là điều duy nhất làm cho Service trở thành Headless
+  selector:
+    robusta: web-app   # CoreDNS sẽ trả về IP của tất cả Pod có label này">Sao chép</button></div>
+            <pre><code>apiVersion: v1
+kind: Service
+metadata:
+  name: robusta-svc-03
+spec:
+  clusterIP: None      # Đây là điều duy nhất làm cho Service trở thành Headless
+  selector:
+    robusta: web-app   # CoreDNS sẽ trả về IP của tất cả Pod có label này</code></pre>
+          </div>
+
+          <p class="code-desc">Tạo Headless Service và so sánh DNS response với ClusterIP Service. Dùng busybox để chạy <code>nslookup</code> và thấy sự khác biệt — Headless trả về nhiều A record, ClusterIP trả về 1 record:</p>
+          <div class="code-block">
+            <div class="code-header"><span class="code-lang">bash</span><button class="copy-btn" data-code="kubectl apply -f 3-headless.yaml
+
+# Headless Service không có CLUSTER-IP — hiện 'None'
+kubectl get service robusta-svc-03
+
+# So sánh DNS response trong busybox Pod
+kubectl run -it --rm dnstest --image=busybox -- /bin/sh
+
+# Trong busybox shell:
+# ClusterIP → trả về 1 IP (ClusterIP)
+nslookup robusta-svc-01
+# Headless → trả về nhiều IP (Pod IPs trực tiếp)
+nslookup robusta-svc-03
+
+exit">Sao chép</button></div>
+            <pre><code>kubectl apply -f 3-headless.yaml
+
+# Headless Service không có CLUSTER-IP — hiện 'None'
+kubectl get service robusta-svc-03
+
+# So sánh DNS response trong busybox Pod
+kubectl run -it --rm dnstest --image=busybox -- /bin/sh
+
+# Trong busybox shell:
+# ClusterIP → trả về 1 IP (ClusterIP)
+nslookup robusta-svc-01
+# Headless → trả về nhiều IP (Pod IPs trực tiếp)
+nslookup robusta-svc-03
+
+exit</code></pre>
+          </div>
+        </section>
+
+        <!-- PHẦN 8: EXTERNALNAME -->
+        <section class="lesson-section">
+          <h2>Phần 8: ExternalName — Alias DNS cho service bên ngoài</h2>
+          <p>ExternalName Service không forward traffic bằng IP/iptables mà tạo một DNS CNAME alias cho một hostname bên ngoài cluster. Khi Pod query DNS tên Service này, CoreDNS trả về CNAME trỏ đến hostname bên ngoài.</p>
+
+          <div class="code-block">
+            <div class="code-header"><span class="code-lang">text – ExternalName DNS flow</span><button class="copy-btn" data-code="Use case: App trong cluster cần gọi external database
+         hoặc API bên ngoài cluster
+
+Cách thông thường (hard-code):
+  App → http://robusta.vn/api  ← hard-coded URL
+
+Cách dùng ExternalName:
+  App → http://external-01/api  ← dùng tên Service nội bộ
+  CoreDNS: external-01.default.svc.cluster.local → CNAME → robusta.vn
+  Sau đó DNS client resolve robusta.vn → IP thực của server bên ngoài
+
+Lợi ích:
+  → Khi endpoint bên ngoài thay đổi, chỉ cần đổi ExternalName Service
+  → App không cần biết hostname thực — giảm coupling
+  → Dễ dàng swap sang internal service sau này (chỉ đổi Service type)">Sao chép</button></div>
+            <pre><code>Use case: App trong cluster cần gọi external database
+         hoặc API bên ngoài cluster
+
+Cách thông thường (hard-code):
+  App → http://robusta.vn/api  ← hard-coded URL
+
+Cách dùng ExternalName:
+  App → http://external-01/api  ← dùng tên Service nội bộ
+  CoreDNS: external-01.default.svc.cluster.local → CNAME → robusta.vn
+  Sau đó DNS client resolve robusta.vn → IP thực của server bên ngoài
+
+Lợi ích:
+  → Khi endpoint bên ngoài thay đổi, chỉ cần đổi ExternalName Service
+  → App không cần biết hostname thực — giảm coupling
+  → Dễ dàng swap sang internal service sau này (chỉ đổi Service type)</code></pre>
+          </div>
+
+          <p class="code-desc">Manifest ExternalName Service. Không có <code>selector</code>, không có <code>ports</code> — chỉ có <code>externalName</code> là hostname đích. Kubernetes không forward traffic qua iptables mà hoàn toàn qua DNS CNAME:</p>
+          <div class="code-block">
+            <div class="code-header"><span class="code-lang">yaml – 4-externalName.yaml</span><button class="copy-btn" data-code="apiVersion: v1
+kind: Service
+metadata:
+  name: external-01
+spec:
+  type: ExternalName
+  externalName: robusta.vn   # Hostname bên ngoài — phải là FQDN hợp lệ
+  # Không có selector, không có ports, không có clusterIP
+  # Hoàn toàn là DNS CNAME alias">Sao chép</button></div>
+            <pre><code>apiVersion: v1
+kind: Service
+metadata:
+  name: external-01
+spec:
+  type: ExternalName
+  externalName: robusta.vn   # Hostname bên ngoài — phải là FQDN hợp lệ
+  # Không có selector, không có ports, không có clusterIP
+  # Hoàn toàn là DNS CNAME alias</code></pre>
+          </div>
+
+          <p class="code-desc">Tạo ExternalName Service và kiểm tra DNS. <code>nslookup external-01</code> trong cluster sẽ trả về CNAME trỏ đến <code>robusta.vn</code>. Sau đó <code>robusta.vn</code> được resolve thành IP thực:</p>
+          <div class="code-block">
+            <div class="code-header"><span class="code-lang">bash</span><button class="copy-btn" data-code="kubectl apply -f 4-externalName.yaml
+
+# ExternalName không có CLUSTER-IP
+kubectl get service external-01
+
+# Kiểm tra DNS CNAME từ trong cluster
+kubectl run -it --rm dnstest --image=busybox -- nslookup external-01
+# Kết quả mẫu:
+# Name: external-01.default.svc.cluster.local
+# Address: CNAME → robusta.vn → [external IP]">Sao chép</button></div>
+            <pre><code>kubectl apply -f 4-externalName.yaml
+
+# ExternalName không có CLUSTER-IP
+kubectl get service external-01
+
+# Kiểm tra DNS CNAME từ trong cluster
+kubectl run -it --rm dnstest --image=busybox -- nslookup external-01
+# Kết quả mẫu:
+# Name: external-01.default.svc.cluster.local
+# Address: CNAME → robusta.vn → [external IP]</code></pre>
+          </div>
+        </section>
+
+        <!-- PHẦN 9: COREDNS -->
+        <section class="lesson-section">
+          <h2>Phần 9: CoreDNS — DNS nội bộ của cluster</h2>
+          <p>CoreDNS là DNS server mặc định của Kubernetes. Tất cả Pod trong cluster đều được cấu hình tự động để dùng CoreDNS làm DNS server. CoreDNS chạy như Deployment trong namespace <code>kube-system</code>.</p>
+
+          <h3>9.1 Cơ chế DNS resolution trong cluster</h3>
+          <div class="code-block">
+            <div class="code-header"><span class="code-lang">text – DNS resolution flow</span><button class="copy-btn" data-code="Pod /etc/resolv.conf (tự động inject bởi kubelet):
+  nameserver 10.96.0.10          ← ClusterIP của kube-dns Service
+  search default.svc.cluster.local svc.cluster.local cluster.local
+  options ndots:5
+
+Pod query: nslookup hello-world
+  → search list: hello-world.default.svc.cluster.local  ← thử đầu tiên
+                 hello-world.svc.cluster.local
+                 hello-world.cluster.local
+  → Tìm thấy ở: hello-world.default.svc.cluster.local → 10.102.161.178
+
+Pod query: nslookup hello-world.default.svc.cluster.local  ← FQDN
+  → CoreDNS lookup ngay, không cần search list
+  → Trả về: 10.102.161.178
+
+Từ namespace khác (myns):
+  nslookup hello-world            → NXDOMAIN (tìm trong myns, không thấy)
+  nslookup hello-world.default    → NXDOMAIN
+  nslookup hello-world.default.svc.cluster.local → 10.102.161.178 ✓">Sao chép</button></div>
+            <pre><code>Pod /etc/resolv.conf (tự động inject bởi kubelet):
+  nameserver 10.96.0.10          ← ClusterIP của kube-dns Service
+  search default.svc.cluster.local svc.cluster.local cluster.local
+  options ndots:5
+
+Pod query: nslookup hello-world
+  → search list: hello-world.default.svc.cluster.local  ← thử đầu tiên
+                 hello-world.svc.cluster.local
+                 hello-world.cluster.local
+  → Tìm thấy ở: hello-world.default.svc.cluster.local → 10.102.161.178
+
+Pod query: nslookup hello-world.default.svc.cluster.local  ← FQDN
+  → CoreDNS lookup ngay, không cần search list
+  → Trả về: 10.102.161.178
+
+Từ namespace khác (myns):
+  nslookup hello-world            → NXDOMAIN (tìm trong myns, không thấy)
+  nslookup hello-world.default    → NXDOMAIN
+  nslookup hello-world.default.svc.cluster.local → 10.102.161.178 ✓</code></pre>
+          </div>
+
+          <h3>9.2 Kiểm tra CoreDNS</h3>
+          <p class="code-desc">Xem CoreDNS deployment và ConfigMap. ConfigMap <code>coredns</code> chứa cấu hình Corefile — bao gồm upstream DNS forwarder (mặc định là <code>/etc/resolv.conf</code> của node). Có thể custom để dùng DNS server riêng:</p>
+          <div class="code-block">
+            <div class="code-header"><span class="code-lang">bash</span><button class="copy-btn" data-code="# Xem CoreDNS pods và service
+kubectl get pods -n kube-system -l k8s-app=kube-dns
+kubectl get service -n kube-system kube-dns
+
+# Xem chi tiết CoreDNS deployment
+kubectl describe deployment coredns -n kube-system
+
+# Xem cấu hình CoreDNS (Corefile)
+kubectl get configmap coredns -n kube-system -o yaml">Sao chép</button></div>
+            <pre><code># Xem CoreDNS pods và service
+kubectl get pods -n kube-system -l k8s-app=kube-dns
+kubectl get service -n kube-system kube-dns
+
+# Xem chi tiết CoreDNS deployment
+kubectl describe deployment coredns -n kube-system
+
+# Xem cấu hình CoreDNS (Corefile)
+kubectl get configmap coredns -n kube-system -o yaml</code></pre>
+          </div>
+
+          <h3>9.3 Thực hành DNS discovery</h3>
+          <p class="code-desc">Kiểm tra file <code>/etc/resolv.conf</code> trong Pod để thấy nameserver trỏ về CoreDNS ClusterIP. Sau đó chạy busybox để test DNS từ cùng namespace và từ namespace khác:</p>
+          <div class="code-block">
+            <div class="code-header"><span class="code-lang">bash</span><button class="copy-btn" data-code="# Xem DNS config trong Pod bình thường
+kubectl exec -it &lt;POD_NAME&gt; -- cat /etc/resolv.conf
+# nameserver 10.96.0.10
+# search default.svc.cluster.local svc.cluster.local cluster.local
+
+# Test DNS từ cùng namespace (default)
+kubectl run -it --rm bb --image=busybox -- /bin/sh
+/ # nslookup hello-world
+# → Tìm được: hello-world.default.svc.cluster.local → ClusterIP
+/ # nslookup hello-world.default.svc.cluster.local
+# → Trực tiếp, không qua search list
+exit
+
+# Tạo namespace mới và test cross-namespace DNS
+kubectl create ns myns
+kubectl run -n myns -it --rm bb1 --image=busybox -- /bin/sh
+/ # nslookup hello-world
+# → NXDOMAIN (Service không có trong myns)
+/ # nslookup hello-world.default.svc.cluster.local
+# → Thành công! FQDN hoạt động cross-namespace
+exit">Sao chép</button></div>
+            <pre><code># Xem DNS config trong Pod bình thường
+kubectl exec -it &lt;POD_NAME&gt; -- cat /etc/resolv.conf
+# nameserver 10.96.0.10
+# search default.svc.cluster.local svc.cluster.local cluster.local
+
+# Test DNS từ cùng namespace (default)
+kubectl run -it --rm bb --image=busybox -- /bin/sh
+/ # nslookup hello-world
+# → Tìm được: hello-world.default.svc.cluster.local → ClusterIP
+/ # nslookup hello-world.default.svc.cluster.local
+# → Trực tiếp, không qua search list
+exit
+
+# Tạo namespace mới và test cross-namespace DNS
+kubectl create ns myns
+kubectl run -n myns -it --rm bb1 --image=busybox -- /bin/sh
+/ # nslookup hello-world
+# → NXDOMAIN (Service không có trong myns)
+/ # nslookup hello-world.default.svc.cluster.local
+# → Thành công! FQDN hoạt động cross-namespace
+exit</code></pre>
+          </div>
+
+          <h3>9.4 Custom DNS cho Pod</h3>
+          <p class="code-desc">Có thể override DNS server cho Pod cụ thể bằng <code>dnsConfig</code> trong PodSpec. Ví dụ dùng Quad9 (<code>9.9.9.9</code>) thay vì CoreDNS — sau khi apply, <code>/etc/resolv.conf</code> trong Pod sẽ hiện <code>nameserver 9.9.9.9</code>:</p>
+          <div class="code-block">
+            <div class="code-header"><span class="code-lang">yaml – custom-dns-pod.yaml</span><button class="copy-btn" data-code="apiVersion: v1
+kind: Pod
+metadata:
+  name: custom-dns-pod
+spec:
+  dnsPolicy: None            # Tắt DNS mặc định của cluster
+  dnsConfig:
+    nameservers:
+      - 9.9.9.9              # Dùng Quad9 thay vì CoreDNS
+    searches:
+      - my-custom-domain.local
+    options:
+      - name: ndots
+        value: '5'
+  containers:
+    - name: app
+      image: nginx">Sao chép</button></div>
+            <pre><code>apiVersion: v1
+kind: Pod
+metadata:
+  name: custom-dns-pod
+spec:
+  dnsPolicy: None            # Tắt DNS mặc định của cluster
+  dnsConfig:
+    nameservers:
+      - 9.9.9.9              # Dùng Quad9 thay vì CoreDNS
+    searches:
+      - my-custom-domain.local
+    options:
+      - name: ndots
+        value: '5'
+  containers:
+    - name: app
+      image: nginx</code></pre>
+          </div>
+        </section>
+
+        <!-- PHẦN 10: KUBE-PROXY -->
+        <section class="lesson-section">
+          <h2>Phần 10: kube-proxy — Cơ chế forward traffic Service</h2>
+          <p>kube-proxy chạy trên mỗi node (DaemonSet) và chịu trách nhiệm duy trì network rules để traffic đến Service ClusterIP/NodePort được forward đến đúng Pod. Kube-proxy có 3 chế độ hoạt động.</p>
+
+          <div class="node-table-wrap">
+            <table class="node-table">
+              <thead><tr><th>Mode</th><th>Cơ chế</th><th>Đặc điểm</th></tr></thead>
+              <tbody>
+                <tr><td><code>iptables</code> (mặc định)</td><td>DNAT rules trong iptables kernel</td><td>Hiệu năng tốt, không cần userspace. Random load balance. Giới hạn ở ~10k Services</td></tr>
+                <tr><td><code>IPVS</code></td><td>Linux IPVS (kernel space load balancer)</td><td>Hiệu năng cao hơn, nhiều thuật toán LB (round-robin, least-conn, sh...). Phù hợp cluster lớn</td></tr>
+                <tr><td><code>userspace</code> (cũ)</td><td>Proxy trong userspace</td><td>Deprecated, chậm, không dùng nữa</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="code-block">
+            <div class="code-header"><span class="code-lang">text – iptables rules kube-proxy tạo ra</span><button class="copy-btn" data-code="# Khi tạo ClusterIP Service 10.102.161.178:8080 với 3 Pod phía sau:
+
+# PREROUTING chain — bắt traffic đến ClusterIP
+-A KUBE-SERVICES -d 10.102.161.178/32 -p tcp --dport 8080 \
+   -j KUBE-SVC-XXXX
+
+# Load balance — random 33% cho mỗi Pod
+-A KUBE-SVC-XXXX -m statistic --mode random --probability 0.33 \
+   -j KUBE-SEP-POD-A
+-A KUBE-SVC-XXXX -m statistic --mode random --probability 0.5 \
+   -j KUBE-SEP-POD-B
+-A KUBE-SVC-XXXX -j KUBE-SEP-POD-C
+
+# DNAT đến Pod thực
+-A KUBE-SEP-POD-A -p tcp -j DNAT --to-destination 192.168.154.243:80
+-A KUBE-SEP-POD-B -p tcp -j DNAT --to-destination 192.168.44.215:80
+-A KUBE-SEP-POD-C -p tcp -j DNAT --to-destination 192.168.154.244:80
+
+# Khi Pod bị xóa → kube-proxy ngay lập tức xóa rule tương ứng">Sao chép</button></div>
+            <pre><code># Khi tạo ClusterIP Service 10.102.161.178:8080 với 3 Pod phía sau:
+
+# PREROUTING chain — bắt traffic đến ClusterIP
+-A KUBE-SERVICES -d 10.102.161.178/32 -p tcp --dport 8080 \
+   -j KUBE-SVC-XXXX
+
+# Load balance — random 33% cho mỗi Pod
+-A KUBE-SVC-XXXX -m statistic --mode random --probability 0.33 \
+   -j KUBE-SEP-POD-A
+-A KUBE-SVC-XXXX -m statistic --mode random --probability 0.5 \
+   -j KUBE-SEP-POD-B
+-A KUBE-SVC-XXXX -j KUBE-SEP-POD-C
+
+# DNAT đến Pod thực
+-A KUBE-SEP-POD-A -p tcp -j DNAT --to-destination 192.168.154.243:80
+-A KUBE-SEP-POD-B -p tcp -j DNAT --to-destination 192.168.44.215:80
+-A KUBE-SEP-POD-C -p tcp -j DNAT --to-destination 192.168.154.244:80
+
+# Khi Pod bị xóa → kube-proxy ngay lập tức xóa rule tương ứng</code></pre>
+          </div>
+
+          <p class="code-desc">Quan sát iptables rules trực tiếp trên node. Cần SSH vào node và dùng quyền root để xem các chain KUBE-SERVICES, KUBE-SVC-*, KUBE-SEP-* mà kube-proxy tạo:</p>
+          <div class="code-block">
+            <div class="code-header"><span class="code-lang">bash</span><button class="copy-btn" data-code="# SSH vào worker node
+ssh worker-01
+
+# Xem các chain KUBE-* trong iptables
+sudo iptables -t nat -L KUBE-SERVICES --line-numbers
+sudo iptables -t nat -L | grep -A5 KUBE-SVC
+
+# Xem tất cả rule liên quan đến Service IP
+sudo iptables -t nat -L -n | grep 10.102.161.178">Sao chép</button></div>
+            <pre><code># SSH vào worker node
+ssh worker-01
+
+# Xem các chain KUBE-* trong iptables
+sudo iptables -t nat -L KUBE-SERVICES --line-numbers
+sudo iptables -t nat -L | grep -A5 KUBE-SVC
+
+# Xem tất cả rule liên quan đến Service IP
+sudo iptables -t nat -L -n | grep 10.102.161.178</code></pre>
+          </div>
+        </section>
+
+        <!-- PHẦN 11: NETWORKPOLICY -->
+        <section class="lesson-section">
+          <h2>Phần 11: NetworkPolicy — Kiểm soát traffic giữa Pod</h2>
+          <p>Mặc định, mọi Pod trong Kubernetes có thể giao tiếp với mọi Pod khác (không có tường lửa). NetworkPolicy cho phép định nghĩa rules kiểm soát traffic ingress (vào Pod) và egress (ra khỏi Pod).</p>
+
+          <div class="info-box">
+            <div class="info-box-title">⚠️ Yêu cầu CNI hỗ trợ NetworkPolicy</div>
+            <p style="margin:0;font-size:13.5px;color:#1e40af;line-height:1.7">NetworkPolicy chỉ hoạt động nếu CNI plugin hỗ trợ. <strong>Calico</strong> hỗ trợ đầy đủ. Flannel mặc định không hỗ trợ. NetworkPolicy là khai báo rules — CNI plugin thực thi bằng iptables/eBPF.</p>
+          </div>
+
+          <h3>11.1 Default behavior và Deny-all</h3>
+          <div class="code-block">
+            <div class="code-header"><span class="code-lang">text – Mô hình NetworkPolicy</span><button class="copy-btn" data-code="Mặc định (không có NetworkPolicy):
+  Pod A → Pod B  ✓ (bất kỳ Pod nào cũng giao tiếp được)
+  Pod A → Pod C  ✓
+  Internet → Pod ✓ (qua NodePort)
+
+Sau khi áp dụng NetworkPolicy cho Pod B (deny-all):
+  Pod A → Pod B  ✗ (bị block)
+  Pod C → Pod B  ✗ (bị block)
+  Chỉ những source được whitelist mới vào được
+
+Nguyên tắc:
+  → Khi có ít nhất 1 NetworkPolicy select Pod
+    Tất cả traffic không được allow sẽ bị DENY
+  → Nhiều NetworkPolicy cùng select 1 Pod → rules được union (OR)">Sao chép</button></div>
+            <pre><code>Mặc định (không có NetworkPolicy):
+  Pod A → Pod B  ✓ (bất kỳ Pod nào cũng giao tiếp được)
+  Pod A → Pod C  ✓
+  Internet → Pod ✓ (qua NodePort)
+
+Sau khi áp dụng NetworkPolicy cho Pod B (deny-all):
+  Pod A → Pod B  ✗ (bị block)
+  Pod C → Pod B  ✗ (bị block)
+  Chỉ những source được whitelist mới vào được
+
+Nguyên tắc:
+  → Khi có ít nhất 1 NetworkPolicy select Pod
+    Tất cả traffic không được allow sẽ bị DENY
+  → Nhiều NetworkPolicy cùng select 1 Pod → rules được union (OR)</code></pre>
+          </div>
+
+          <h3>11.2 Ví dụ NetworkPolicy thực tế</h3>
+          <p class="code-desc">Manifest NetworkPolicy cho phép chỉ Pod có label <code>role=frontend</code> mới được kết nối vào database Pod (port 3306). Tất cả traffic khác đến database bị deny. Đây là pattern zero-trust trong microservices:</p>
+          <div class="code-block">
+            <div class="code-header"><span class="code-lang">yaml – networkpolicy-db.yaml</span><button class="copy-btn" data-code="# Deny tất cả ingress traffic đến database Pod
+# Chỉ cho phép traffic từ frontend Pod
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-frontend-to-db
+  namespace: default
+spec:
+  podSelector:
+    matchLabels:
+      role: database         # Policy này áp dụng cho Pod có label role=database
+  policyTypes:
+    - Ingress                # Chỉ kiểm soát traffic vào
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              role: frontend # Chỉ cho phép từ Pod có label role=frontend
+      ports:
+        - protocol: TCP
+          port: 3306         # Chỉ cho phép port MySQL
+---
+# Deny tất cả ingress traffic đến namespace production
+# (áp dụng cho mọi Pod trong namespace)
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-all
+  namespace: production
+spec:
+  podSelector: {}            # {} = select tất cả Pod trong namespace
+  policyTypes:
+    - Ingress
+    - Egress                 # Block cả traffic ra ngoài">Sao chép</button></div>
+            <pre><code># Deny tất cả ingress traffic đến database Pod
+# Chỉ cho phép traffic từ frontend Pod
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-frontend-to-db
+  namespace: default
+spec:
+  podSelector:
+    matchLabels:
+      role: database         # Policy này áp dụng cho Pod có label role=database
+  policyTypes:
+    - Ingress                # Chỉ kiểm soát traffic vào
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              role: frontend # Chỉ cho phép từ Pod có label role=frontend
+      ports:
+        - protocol: TCP
+          port: 3306         # Chỉ cho phép port MySQL
+---
+# Deny tất cả ingress traffic đến namespace production
+# (áp dụng cho mọi Pod trong namespace)
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-all
+  namespace: production
+spec:
+  podSelector: {}            # {} = select tất cả Pod trong namespace
+  policyTypes:
+    - Ingress
+    - Egress                 # Block cả traffic ra ngoài</code></pre>
+          </div>
+        </section>
+
+        <!-- QUIZ -->
+        <section class="lesson-section">
+          <h2>🧪 Câu hỏi kiểm tra cuối buổi</h2>
+          <div class="quiz-container">
+            <div class="quiz-item">
+              <p class="quiz-q">1. Pod A (IP: 192.168.154.243) trên worker-01 muốn giao tiếp với Pod B (IP: 192.168.44.215) trên worker-02. Thành phần nào xử lý việc định tuyến cross-node?</p>
+              <div class="quiz-options">
+                <button class="quiz-opt" data-correct="false">A. kube-proxy và iptables</button>
+                <button class="quiz-opt" data-correct="false">B. CoreDNS</button>
+                <button class="quiz-opt" data-correct="true">C. CNI Plugin (Calico) với VXLAN overlay</button>
+                <button class="quiz-opt" data-correct="false">D. kube-apiserver</button>
+              </div>
+              <div class="quiz-explain hidden">✅ <strong>Đáp án C:</strong> CNI Plugin (Calico) chịu trách nhiệm định tuyến Pod-to-Pod traffic, kể cả cross-node. Calico tạo VXLAN tunnel hoặc dùng BGP routing để đưa gói tin từ node này sang node khác mà không cần NAT. kube-proxy chỉ xử lý traffic đến Service VIP.</div>
+            </div>
+            <div class="quiz-item">
+              <p class="quiz-q">2. ClusterIP Service có địa chỉ IP 10.102.161.178. Loại địa chỉ này là gì và ai quản lý nó?</p>
+              <div class="quiz-options">
+                <button class="quiz-opt" data-correct="false">A. IP thực gắn vào network interface — do CNI quản lý</button>
+                <button class="quiz-opt" data-correct="true">B. Virtual IP (VIP) không gắn interface thật — do kube-proxy/iptables xử lý</button>
+                <button class="quiz-opt" data-correct="false">C. IP của node master — route qua node đó</button>
+                <button class="quiz-opt" data-correct="false">D. IP của Pod đứng đầu trong nhóm</button>
+              </div>
+              <div class="quiz-explain hidden">✅ <strong>Đáp án B:</strong> ClusterIP là Virtual IP — không gắn với bất kỳ network interface nào. kube-proxy tạo iptables DNAT rules để bắt traffic đến VIP và chuyển hướng đến Pod IP thực. Đây là lý do khi ping ClusterIP từ ngoài cluster sẽ không có route.</div>
+            </div>
+            <div class="quiz-item">
+              <p class="quiz-q">3. Điều gì xảy ra khi Pod query DNS "hello-world" từ namespace "myns" trong khi Service "hello-world" tồn tại trong namespace "default"?</p>
+              <div class="quiz-options">
+                <button class="quiz-opt" data-correct="false">A. Tìm thấy vì DNS trong K8S là global</button>
+                <button class="quiz-opt" data-correct="true">B. NXDOMAIN — phải dùng FQDN: hello-world.default.svc.cluster.local</button>
+                <button class="quiz-opt" data-correct="false">C. CoreDNS tự động tìm sang namespace default</button>
+                <button class="quiz-opt" data-correct="false">D. Trả về ClusterIP của Service</button>
+              </div>
+              <div class="quiz-explain hidden">✅ <strong>Đáp án B:</strong> DNS search list của Pod trong myns ưu tiên tìm "hello-world.myns.svc.cluster.local" trước. Service không tồn tại trong myns → NXDOMAIN. Để giao tiếp cross-namespace phải dùng FQDN đầy đủ: "hello-world.default.svc.cluster.local".</div>
+            </div>
+            <div class="quiz-item">
+              <p class="quiz-q">4. Sự khác biệt chính giữa Headless Service và ClusterIP Service khi query DNS là gì?</p>
+              <div class="quiz-options">
+                <button class="quiz-opt" data-correct="false">A. Headless không có DNS record</button>
+                <button class="quiz-opt" data-correct="true">B. ClusterIP trả về 1 VIP; Headless trả về danh sách Pod IP trực tiếp</button>
+                <button class="quiz-opt" data-correct="false">C. Headless không hỗ trợ StatefulSet</button>
+                <button class="quiz-opt" data-correct="false">D. Cả hai giống nhau về DNS</button>
+              </div>
+              <div class="quiz-explain hidden">✅ <strong>Đáp án B:</strong> ClusterIP Service → DNS trả về 1 IP ảo (VIP), kube-proxy load balance. Headless Service (clusterIP: None) → DNS trả về A record cho từng Pod IP. Client tự chọn Pod. Cần thiết cho StatefulSet vì mỗi Pod cần có DNS ổn định riêng (mysql-0.svc, mysql-1.svc...).</div>
+            </div>
+            <div class="quiz-item">
+              <p class="quiz-q">5. NodePort Service mở port 30080 trên cluster có 3 node. Có thể truy cập Service qua URL nào sau đây?</p>
+              <div class="quiz-options">
+                <button class="quiz-opt" data-correct="false">A. Chỉ qua IP của node đang chạy Pod</button>
+                <button class="quiz-opt" data-correct="false">B. Chỉ qua IP của master node</button>
+                <button class="quiz-opt" data-correct="true">C. Qua IP của bất kỳ node nào trong cluster:30080</button>
+                <button class="quiz-opt" data-correct="false">D. Chỉ qua ClusterIP</button>
+              </div>
+              <div class="quiz-explain hidden">✅ <strong>Đáp án C:</strong> NodePort mở port trên TẤT CẢ node trong cluster — kể cả master, kể cả node không chạy Pod. kube-proxy trên mỗi node nhận traffic và forward đến Pod dù Pod đang chạy trên node khác. Đây là lý do traffic luôn đến được Pod dù client kết nối vào node nào.</div>
+            </div>
+            <div class="quiz-item">
+              <p class="quiz-q">6. ExternalName Service khác các loại Service khác ở điểm nào?</p>
+              <div class="quiz-options">
+                <button class="quiz-opt" data-correct="false">A. Dùng iptables DNAT giống ClusterIP nhưng đến IP bên ngoài</button>
+                <button class="quiz-opt" data-correct="true">B. Hoàn toàn dựa trên DNS CNAME — không có ClusterIP, không có iptables rules</button>
+                <button class="quiz-opt" data-correct="false">C. Mở port trên node để forward ra ngoài</button>
+                <button class="quiz-opt" data-correct="false">D. Yêu cầu cloud provider</button>
+              </div>
+              <div class="quiz-explain hidden">✅ <strong>Đáp án B:</strong> ExternalName không có selector, không có Endpoints, không có ClusterIP, không có iptables rules. Hoàn toàn là DNS level: CoreDNS trả về CNAME record trỏ đến hostname bên ngoài. Client tự resolve CNAME đó thành IP và kết nối trực tiếp.</div>
+            </div>
+            <div class="quiz-item">
+              <p class="quiz-q">7. Tại sao không nên dùng Pod IP trực tiếp để giao tiếp giữa các microservice?</p>
+              <div class="quiz-options">
+                <button class="quiz-opt" data-correct="false">A. Pod IP không routable trong cluster</button>
+                <button class="quiz-opt" data-correct="false">B. Pod IP quá dài để nhớ</button>
+                <button class="quiz-opt" data-correct="true">C. Pod IP thay đổi mỗi lần Pod bị recreate — không ổn định</button>
+                <button class="quiz-opt" data-correct="false">D. Pod IP chỉ dùng được trong cùng node</button>
+              </div>
+              <div class="quiz-explain hidden">✅ <strong>Đáp án C:</strong> Pod là ephemeral — bị xóa và tạo lại khi crash, rolling update, reschedule. Mỗi lần recreate, Pod nhận IP mới hoàn toàn. Service cung cấp địa chỉ ổn định (ClusterIP + DNS name) đứng trước nhóm Pod, tự động cập nhật khi Pod thay đổi.</div>
+            </div>
+            <div class="quiz-item">
+              <p class="quiz-q">8. NetworkPolicy với <code>podSelector: {}</code> (selector rỗng) và <code>policyTypes: [Ingress]</code> có tác dụng gì?</p>
+              <div class="quiz-options">
+                <button class="quiz-opt" data-correct="false">A. Không có tác dụng gì</button>
+                <button class="quiz-opt" data-correct="false">B. Chỉ block traffic giữa Pod trong namespace</button>
+                <button class="quiz-opt" data-correct="true">C. Deny tất cả ingress traffic đến mọi Pod trong namespace</button>
+                <button class="quiz-opt" data-correct="false">D. Allow tất cả ingress traffic</button>
+              </div>
+              <div class="quiz-explain hidden">✅ <strong>Đáp án C:</strong> podSelector rỗng ({}) select TẤT CẢ Pod trong namespace. Khi có NetworkPolicy select Pod nhưng không có ingress rule nào được define → toàn bộ ingress traffic bị deny. Đây là pattern "default-deny" thường dùng để khởi đầu zero-trust model rồi thêm whitelist rules sau.</div>
             </div>
           </div>
         </section>
