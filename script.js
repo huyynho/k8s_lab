@@ -5,10 +5,10 @@
 
 // ── CONSTANTS ──────────────────────────────────────────
 const LESSON_TITLES = [
-  'Bài 01: Kiến trúc Kubernetes',
-  'Bài 02: Triển khai Kubernetes Cluster',
-  'Bài 03: Kubernetes Objects & YAML',
-  'Bài 04: Pod & Container',
+  'Bài 01: Kubernetes Architecture',
+  'Bài 02: Kubernetes Cluster',
+  'Bài 03: Kubernetes Workloads',
+  'Bài 04: Kubernetes Networking',
   'Bài 05: Deployment & ReplicaSet',
   'Bài 06: Service & Networking',
   'Bài 07: ConfigMap & Secret',
@@ -22,7 +22,7 @@ const LESSON_TITLES = [
 ];
 
 const TOTAL_LESSONS = 14;
-const AVAILABLE_LESSONS = 2; // bài 01 và 02
+const AVAILABLE_LESSONS = 3; // bài 01, 02 và 03
 
 // ── STATE ──────────────────────────────────────────────
 let currentLesson = 0;

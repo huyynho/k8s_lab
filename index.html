@@ -26,20 +26,19 @@
       <ul class="lesson-list" id="lessonList">
         <li class="lesson-item active" data-lesson="0">
           <span class="lesson-num">01</span>
-          <span class="lesson-title">Kiến trúc Kubernetes</span>
+          <span class="lesson-title">Kubernetes Architecture</span>
         </li>
         <li class="lesson-item" data-lesson="1">
           <span class="lesson-num">02</span>
-          <span class="lesson-title">Triển khai Kubernetes Cluster</span>
+          <span class="lesson-title">Kubernetes Cluster</span>
         </li>
-        <li class="lesson-item coming-soon" data-lesson="2">
+        <li class="lesson-item" data-lesson="2">
           <span class="lesson-num">03</span>
-          <span class="lesson-title">Kubernetes Objects & YAML</span>
-          <span class="badge-soon">Sắp ra</span>
+          <span class="lesson-title">Kubernetes Workloads</span>
         </li>
         <li class="lesson-item coming-soon" data-lesson="3">
           <span class="lesson-num">04</span>
-          <span class="lesson-title">Pod & Container</span>
+          <span class="lesson-title">Kubernetes Networking</span>
           <span class="badge-soon">Sắp ra</span>
         </li>
         <li class="lesson-item coming-soon" data-lesson="4">
@@ -1586,6 +1585,1426 @@ kubectl uncordon k8s-node-01
 
 # Kiểm tra kết quả
 kubectl get nodes -o wide</code></pre>
+          </div>
+        </section>
+      </article>
+
+      <!-- ========== BÀI 03 ========== -->
+      <article class="lesson-content" id="lesson-2">
+        <div class="lesson-hero">
+          <div class="hero-badge">Bài 03</div>
+          <h1 class="lesson-h1">Kubernetes Workloads</h1>
+          <p class="lesson-subtitle">Hiểu và thực hành đầy đủ các loại workload: Pod, ReplicaSet, Deployment, DaemonSet, StatefulSet, Job và CronJob</p>
+          <div class="lesson-info-grid">
+            <div class="info-chip"><span class="chip-label">Công cụ</span><span class="chip-val">kubectl</span></div>
+            <div class="info-chip"><span class="chip-label">K8S</span><span class="chip-val">v1.35</span></div>
+            <div class="info-chip"><span class="chip-label">Namespace</span><span class="chip-val">default</span></div>
+            <div class="info-chip"><span class="chip-label">Độ khó</span><span class="chip-val">Trung bình</span></div>
+          </div>
+        </div>
+
+        <!-- MỤC TIÊU -->
+        <section class="lesson-section">
+          <h2>🎯 Mục tiêu buổi học</h2>
+          <ul class="goal-list">
+            <li>Phân biệt rõ các loại workload resource: Pod, ReplicaSet, Deployment, DaemonSet, StatefulSet, Job, CronJob</li>
+            <li>Hiểu khi nào dùng loại workload nào trong thực tế</li>
+            <li>Thực hành tạo, scale, update và xóa Deployment</li>
+            <li>Hiểu Pod Lifecycle: các trạng thái, restart policy, init container</li>
+            <li>Cấu hình và debug Container Probes: liveness, readiness, startup</li>
+            <li>Thực hành multi-container Pod với sidecar pattern</li>
+            <li>Hiểu StatefulSet dùng cho workload stateful như database</li>
+            <li>Tạo và quản lý Job, CronJob để chạy tác vụ định kỳ</li>
+          </ul>
+        </section>
+
+        <!-- PHẦN 1: TỔNG QUAN WORKLOAD -->
+        <section class="lesson-section">
+          <h2>Phần 1: Tổng quan các loại Workload Resource</h2>
+          <p>Kubernetes cung cấp nhiều loại workload resource để phù hợp với từng mục đích triển khai khác nhau. Việc chọn đúng loại workload là yếu tố then chốt trong thiết kế hệ thống.</p>
+
+          <div class="code-block">
+            <div class="code-header"><span class="code-lang">text – Bản đồ các loại Workload</span><button class="copy-btn" data-code="Kubernetes Workload Resources
+│
+├── Pod                  → Đơn vị cơ bản, ít dùng trực tiếp trong production
+│
+├── ReplicaSet           → Đảm bảo số lượng Pod replica (thường không dùng trực tiếp)
+│
+├── Deployment           → Stateless app: web, API, worker (phổ biến nhất)
+│   └── manages → ReplicaSet → manages → Pods
+│
+├── DaemonSet            → Chạy 1 Pod trên mỗi node: log agent, monitoring agent
+│
+├── StatefulSet          → Stateful app: database, message queue (cần stable identity)
+│
+├── Job                  → Tác vụ chạy 1 lần đến khi hoàn thành: batch, migration
+│
+└── CronJob              → Tác vụ chạy định kỳ theo lịch: backup, report, cleanup">Sao chép</button></div>
+            <pre><code>Kubernetes Workload Resources
+│
+├── Pod                  → Đơn vị cơ bản, ít dùng trực tiếp trong production
+│
+├── ReplicaSet           → Đảm bảo số lượng Pod replica (thường không dùng trực tiếp)
+│
+├── Deployment           → Stateless app: web, API, worker (phổ biến nhất)
+│   └── manages → ReplicaSet → manages → Pods
+│
+├── DaemonSet            → Chạy 1 Pod trên mỗi node: log agent, monitoring agent
+│
+├── StatefulSet          → Stateful app: database, message queue (cần stable identity)
+│
+├── Job                  → Tác vụ chạy 1 lần đến khi hoàn thành: batch, migration
+│
+└── CronJob              → Tác vụ chạy định kỳ theo lịch: backup, report, cleanup</code></pre>
+          </div>
+
+          <div class="node-table-wrap">
+            <table class="node-table">
+              <thead><tr><th>Workload</th><th>Dùng khi nào</th><th>Ví dụ thực tế</th></tr></thead>
+              <tbody>
+                <tr><td><code>Deployment</code></td><td>App stateless, cần scale, rolling update</td><td>React frontend, REST API, Nginx</td></tr>
+                <tr><td><code>StatefulSet</code></td><td>App cần stable network ID, persistent storage</td><td>MySQL, PostgreSQL, Kafka, Zookeeper</td></tr>
+                <tr><td><code>DaemonSet</code></td><td>Cần 1 instance trên mỗi node</td><td>Fluentd, Prometheus node-exporter, Calico</td></tr>
+                <tr><td><code>Job</code></td><td>Tác vụ chạy 1 lần đến hoàn thành</td><td>DB migration, data import, batch processing</td></tr>
+                <tr><td><code>CronJob</code></td><td>Tác vụ lặp lại theo lịch</td><td>Backup hàng đêm, gửi report, cleanup log</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <!-- PHẦN 2: POD CHI TIẾT -->
+        <section class="lesson-section">
+          <h2>Phần 2: Pod — Thực hành chi tiết</h2>
+          <p>Trước khi học các workload cao cấp, cần nắm chắc Pod. Trong thực tế, Pod thường không được tạo thủ công mà thông qua Deployment — nhưng hiểu Pod giúp debug hiệu quả hơn.</p>
+
+          <h3>2.1 Tạo Pod đơn giản</h3>
+          <p class="code-desc">Theo dõi cluster events trong terminal riêng để quan sát toàn bộ quá trình scheduling → image pulling → container starting khi tạo Pod:</p>
+          <div class="code-block">
+            <div class="code-header"><span class="code-lang">bash</span><button class="copy-btn" data-code="kubectl get events --watch">Sao chép</button></div>
+            <pre><code>kubectl get events --watch</code></pre>
+          </div>
+
+          <p class="code-desc">Manifest Pod đơn giản chạy ứng dụng hello-world. Field <code>apiVersion: v1</code> và <code>kind: Pod</code> xác định loại object. <code>spec.containers</code> liệt kê danh sách container — ở đây chỉ có 1 container:</p>
+          <div class="code-block">
+            <div class="code-header"><span class="code-lang">yaml – hello-world-pod.yaml</span><button class="copy-btn" data-code="apiVersion: v1
+kind: Pod
+metadata:
+  name: hello-world-pod
+  labels:
+    app: hello-world
+spec:
+  containers:
+    - name: hello-world
+      image: gcr.io/google-samples/hello-app:1.0
+      ports:
+        - containerPort: 8080">Sao chép</button></div>
+            <pre><code>apiVersion: v1
+kind: Pod
+metadata:
+  name: hello-world-pod
+  labels:
+    app: hello-world
+spec:
+  containers:
+    - name: hello-world
+      image: gcr.io/google-samples/hello-app:1.0
+      ports:
+        - containerPort: 8080</code></pre>
+          </div>
+
+          <p class="code-desc">Apply manifest để tạo Pod. Quan sát events terminal: sẽ thấy tuần tự — <code>Scheduled</code> (scheduler chọn node) → <code>Pulling</code> (pull image) → <code>Created</code> → <code>Started</code>:</p>
+          <div class="code-block">
+            <div class="code-header"><span class="code-lang">bash</span><button class="copy-btn" data-code="kubectl apply -f hello-world-pod.yaml
+kubectl get pods -o wide">Sao chép</button></div>
+            <pre><code>kubectl apply -f hello-world-pod.yaml
+kubectl get pods -o wide</code></pre>
+          </div>
+
+          <h3>2.2 Truy cập Pod bằng port-forward</h3>
+          <p class="code-desc"><code>kubectl port-forward</code> tạo tunnel từ máy local đến Pod, đi qua API Server — không cần Service. Cú pháp: <code>LOCAL_PORT:CONTAINER_PORT</code>. Dùng <code>&amp;</code> để chạy nền, giải phóng terminal:</p>
+          <div class="code-block">
+            <div class="code-header"><span class="code-lang">bash</span><button class="copy-btn" data-code="# Chạy port-forward ở nền (dùng & để background)
+kubectl port-forward hello-world-pod 8080:8080 &
+
+# Test kết nối — kubectl forward traffic qua API Server đến Pod
+curl http://localhost:8080
+
+# Dừng port-forward khi xong
+fg
+# Nhấn Ctrl+C">Sao chép</button></div>
+            <pre><code># Chạy port-forward ở nền (dùng & để background)
+kubectl port-forward hello-world-pod 8080:8080 &
+
+# Test kết nối — kubectl forward traffic qua API Server đến Pod
+curl http://localhost:8080
+
+# Dừng port-forward khi xong
+fg
+# Nhấn Ctrl+C</code></pre>
+          </div>
+
+          <h3>2.3 Multi-Container Pod (Sidecar Pattern)</h3>
+          <p>Multi-container Pod là pattern phổ biến trong production. Các container trong cùng Pod dùng chung network và có thể dùng chung Volume. Pattern phổ biến nhất là <strong>Sidecar</strong> — container phụ hỗ trợ container chính.</p>
+
+          <p class="code-desc">Manifest multi-container Pod với 2 container: <code>producer</code> tạo nội dung HTML ghi vào shared volume, <code>consumer</code> (nginx) phục vụ file đó. Cả hai dùng chung <code>emptyDir</code> volume — volume tạm thời tồn tại trong vòng đời Pod:</p>
+          <div class="code-block">
+            <div class="code-header"><span class="code-lang">yaml – multicontainer-pod.yaml</span><button class="copy-btn" data-code="apiVersion: v1
+kind: Pod
+metadata:
+  name: multicontainer-pod
+spec:
+  containers:
+    - name: producer
+      image: ubuntu
+      command: [&quot;/bin/bash&quot;]
+      args: [&quot;-c&quot;, &quot;while true; do echo $(date) >> /var/log/index.html; sleep 10; done&quot;]
+      volumeMounts:
+        - name: webcontent
+          mountPath: /var/log
+    - name: consumer
+      image: nginx
+      ports:
+        - containerPort: 80
+      volumeMounts:
+        - name: webcontent
+          mountPath: /usr/share/nginx/html
+  volumes:
+    - name: webcontent
+      emptyDir: {}">Sao chép</button></div>
+            <pre><code>apiVersion: v1
+kind: Pod
+metadata:
+  name: multicontainer-pod
+spec:
+  containers:
+    - name: producer
+      image: ubuntu
+      command: ["/bin/bash"]
+      args: ["-c", "while true; do echo $(date) >> /var/log/index.html; sleep 10; done"]
+      volumeMounts:
+        - name: webcontent
+          mountPath: /var/log
+    - name: consumer
+      image: nginx
+      ports:
+        - containerPort: 80
+      volumeMounts:
+        - name: webcontent
+          mountPath: /usr/share/nginx/html
+  volumes:
+    - name: webcontent
+      emptyDir: {}</code></pre>
+          </div>
+
+          <p class="code-desc">Tạo Pod và truy cập từng container. Không chỉ định <code>--container</code> sẽ mặc định vào container đầu tiên. Quan sát shared volume — producer ghi, consumer đọc:</p>
+          <div class="code-block">
+            <div class="code-header"><span class="code-lang">bash</span><button class="copy-btn" data-code="kubectl apply -f multicontainer-pod.yaml
+
+# Vào container đầu tiên (producer) - không cần chỉ định tên
+kubectl exec -it multicontainer-pod -- /bin/sh
+ls -la /var/log
+tail /var/log/index.html
+exit
+
+# Vào container thứ hai (consumer) - phải chỉ định tên
+kubectl exec -it multicontainer-pod --container consumer -- /bin/sh
+ls -la /usr/share/nginx/html
+tail /usr/share/nginx/html/index.html
+exit
+
+# Test qua port-forward
+kubectl port-forward multicontainer-pod 8080:80 &
+curl http://localhost:8080
+fg  # Ctrl+C để dừng
+
+# Dọn dẹp
+kubectl delete pod multicontainer-pod">Sao chép</button></div>
+            <pre><code>kubectl apply -f multicontainer-pod.yaml
+
+# Vào container đầu tiên (producer) - không cần chỉ định tên
+kubectl exec -it multicontainer-pod -- /bin/sh
+ls -la /var/log
+tail /var/log/index.html
+exit
+
+# Vào container thứ hai (consumer) - phải chỉ định tên
+kubectl exec -it multicontainer-pod --container consumer -- /bin/sh
+ls -la /usr/share/nginx/html
+tail /usr/share/nginx/html/index.html
+exit
+
+# Test qua port-forward
+kubectl port-forward multicontainer-pod 8080:80 &
+curl http://localhost:8080
+fg  # Ctrl+C để dừng
+
+# Dọn dẹp
+kubectl delete pod multicontainer-pod</code></pre>
+          </div>
+        </section>
+
+        <!-- PHẦN 3: POD LIFECYCLE -->
+        <section class="lesson-section">
+          <h2>Phần 3: Pod Lifecycle — Vòng đời và Restart Policy</h2>
+          <p>Hiểu Pod lifecycle giúp debug hiệu quả khi Pod không hoạt động đúng. Mỗi Pod đi qua nhiều trạng thái khác nhau trong vòng đời của nó.</p>
+
+          <h3>3.1 Các trạng thái của Pod</h3>
+          <div class="node-table-wrap">
+            <table class="node-table">
+              <thead><tr><th>Trạng thái</th><th>Ý nghĩa</th><th>Nguyên nhân thường gặp</th></tr></thead>
+              <tbody>
+                <tr><td><code>Pending</code></td><td>Pod đã được tạo, chưa được schedule hoặc đang pull image</td><td>Không đủ tài nguyên, image đang pull, chưa có CNI</td></tr>
+                <tr><td><code>Running</code></td><td>Pod đang chạy, ít nhất 1 container đang hoạt động</td><td>Trạng thái bình thường</td></tr>
+                <tr><td><code>Succeeded</code></td><td>Tất cả container đã kết thúc thành công (exit 0)</td><td>Job hoàn thành, init container xong</td></tr>
+                <tr><td><code>Failed</code></td><td>Ít nhất 1 container kết thúc với lỗi (exit ≠ 0)</td><td>App crash, OOMKilled, lệnh không tồn tại</td></tr>
+                <tr><td><code>CrashLoopBackOff</code></td><td>Container liên tục crash và restart với backoff delay</td><td>App lỗi khi khởi động, thiếu config, lỗi ENV</td></tr>
+                <tr><td><code>ImagePullBackOff</code></td><td>Không thể pull container image</td><td>Image không tồn tại, sai tag, thiếu pull secret</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <h3>3.2 Restart Policy</h3>
+          <p>Restart policy quyết định container sẽ được restart như thế nào khi kết thúc. Được cấu hình ở cấp Pod, áp dụng cho tất cả container trong Pod.</p>
+
+          <div class="node-table-wrap">
+            <table class="node-table">
+              <thead><tr><th>Policy</th><th>Hành vi</th><th>Dùng khi nào</th></tr></thead>
+              <tbody>
+                <tr><td><code>Always</code></td><td>Luôn restart khi container kết thúc (mặc định)</td><td>Web server, API — phải luôn chạy</td></tr>
+                <tr><td><code>OnFailure</code></td><td>Chỉ restart khi container kết thúc lỗi (exit ≠ 0)</td><td>Batch job — chạy lại khi lỗi, dừng khi thành công</td></tr>
+                <tr><td><code>Never</code></td><td>Không bao giờ restart</td><td>One-shot task — chỉ chạy 1 lần</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="code-desc">Manifest tạo 2 Pod với restart policy khác nhau để quan sát hành vi. Pod <code>never</code> sẽ không restart khi process chết. Pod <code>onfailure</code> sẽ restart khi crash:</p>
+          <div class="code-block">
+            <div class="code-header"><span class="code-lang">yaml – pod-restart-policy.yaml</span><button class="copy-btn" data-code="apiVersion: v1
+kind: Pod
+metadata:
+  name: hello-world-never-pod
+spec:
+  restartPolicy: Never
+  containers:
+    - name: hello-world
+      image: gcr.io/google-samples/hello-app:1.0
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: hello-world-onfailure-pod
+spec:
+  restartPolicy: OnFailure
+  containers:
+    - name: hello-world
+      image: gcr.io/google-samples/hello-app:1.0">Sao chép</button></div>
+            <pre><code>apiVersion: v1
+kind: Pod
+metadata:
+  name: hello-world-never-pod
+spec:
+  restartPolicy: Never
+  containers:
+    - name: hello-world
+      image: gcr.io/google-samples/hello-app:1.0
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: hello-world-onfailure-pod
+spec:
+  restartPolicy: OnFailure
+  containers:
+    - name: hello-world
+      image: gcr.io/google-samples/hello-app:1.0</code></pre>
+          </div>
+
+          <p class="code-desc">Tạo 2 Pod và thực nghiệm kill main process để quan sát sự khác biệt giữa <code>Never</code> và <code>OnFailure</code>. Chú ý cột <code>RESTARTS</code> và <code>STATUS</code> thay đổi:</p>
+          <div class="code-block">
+            <div class="code-header"><span class="code-lang">bash</span><button class="copy-btn" data-code="kubectl apply -f pod-restart-policy.yaml
+kubectl get pods
+
+# Kill process trong pod restartPolicy=Never
+kubectl exec -it hello-world-never-pod -- /usr/bin/killall hello-app
+kubectl get pods hello-world-never-pod
+# STATUS: Completed hoặc Error — không restart
+
+# Xem chi tiết: Containers->State, Reason, Exit Code
+kubectl describe pod hello-world-never-pod
+
+# Kill process trong pod restartPolicy=OnFailure
+kubectl exec -it hello-world-onfailure-pod -- /usr/bin/killall hello-app
+kubectl get pods hello-world-onfailure-pod
+# RESTARTS tăng lên 1 — container đã được restart">Sao chép</button></div>
+            <pre><code>kubectl apply -f pod-restart-policy.yaml
+kubectl get pods
+
+# Kill process trong pod restartPolicy=Never
+kubectl exec -it hello-world-never-pod -- /usr/bin/killall hello-app
+kubectl get pods hello-world-never-pod
+# STATUS: Completed hoặc Error — không restart
+
+# Xem chi tiết: Containers->State, Reason, Exit Code
+kubectl describe pod hello-world-never-pod
+
+# Kill process trong pod restartPolicy=OnFailure
+kubectl exec -it hello-world-onfailure-pod -- /usr/bin/killall hello-app
+kubectl get pods hello-world-onfailure-pod
+# RESTARTS tăng lên 1 — container đã được restart</code></pre>
+          </div>
+
+          <h3>3.3 Init Container</h3>
+          <p>Init container là container đặc biệt chạy <strong>trước</strong> các container chính trong Pod. Chúng chạy tuần tự, mỗi init container phải hoàn thành trước khi init container tiếp theo (hoặc container chính) bắt đầu. Dùng để: chờ dependency sẵn sàng, tải config, chạy DB migration.</p>
+
+          <div class="code-block">
+            <div class="code-header"><span class="code-lang">yaml – pod-with-init.yaml</span><button class="copy-btn" data-code="apiVersion: v1
+kind: Pod
+metadata:
+  name: myapp-pod
+spec:
+  initContainers:
+    - name: init-wait-db
+      image: busybox
+      command: ['sh', '-c', 'until nslookup mydb; do echo waiting for mydb; sleep 2; done']
+    - name: init-copy-config
+      image: busybox
+      command: ['sh', '-c', 'echo config data > /config/app.conf']
+      volumeMounts:
+        - name: config-vol
+          mountPath: /config
+  containers:
+    - name: myapp
+      image: nginx
+      volumeMounts:
+        - name: config-vol
+          mountPath: /etc/config
+  volumes:
+    - name: config-vol
+      emptyDir: {}">Sao chép</button></div>
+            <pre><code>apiVersion: v1
+kind: Pod
+metadata:
+  name: myapp-pod
+spec:
+  initContainers:
+    - name: init-wait-db
+      image: busybox
+      command: ['sh', '-c', 'until nslookup mydb; do echo waiting for mydb; sleep 2; done']
+    - name: init-copy-config
+      image: busybox
+      command: ['sh', '-c', 'echo config data > /config/app.conf']
+      volumeMounts:
+        - name: config-vol
+          mountPath: /config
+  containers:
+    - name: myapp
+      image: nginx
+      volumeMounts:
+        - name: config-vol
+          mountPath: /etc/config
+  volumes:
+    - name: config-vol
+      emptyDir: {}</code></pre>
+          </div>
+
+          <div class="info-box">
+            <div class="info-box-title">💡 Init Container vs Sidecar Container</div>
+            <div class="node-table-wrap" style="margin-top:8px">
+              <table class="node-table">
+                <thead><tr><th>Đặc điểm</th><th>Init Container</th><th>Sidecar Container</th></tr></thead>
+                <tbody>
+                  <tr><td>Thời điểm chạy</td><td>Trước container chính, chạy xong thì dừng</td><td>Song song với container chính, chạy suốt</td></tr>
+                  <tr><td>Mục đích</td><td>Setup, validation, chờ dependency</td><td>Logging, proxy, monitoring</td></tr>
+                  <tr><td>Restart</td><td>Restart nếu fail, chạy lại từ đầu</td><td>Restart theo restart policy của Pod</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- PHẦN 4: CONTAINER PROBES -->
+        <section class="lesson-section">
+          <h2>Phần 4: Container Probes — Health Check</h2>
+          <p>Kubernetes dùng Probe để kiểm tra sức khỏe container. Cấu hình probe đúng là yếu tố quan trọng đảm bảo ứng dụng production ổn định.</p>
+
+          <h3>4.1 Ba loại Probe</h3>
+          <div class="node-table-wrap">
+            <table class="node-table">
+              <thead><tr><th>Probe</th><th>Mục đích</th><th>Hành động khi fail</th></tr></thead>
+              <tbody>
+                <tr><td><code>livenessProbe</code></td><td>Container có còn sống không? Có bị deadlock không?</td><td>Restart container</td></tr>
+                <tr><td><code>readinessProbe</code></td><td>Container đã sẵn sàng nhận traffic chưa?</td><td>Xóa Pod khỏi Service endpoint — không restart</td></tr>
+                <tr><td><code>startupProbe</code></td><td>App khởi động chậm, cần thêm thời gian trước khi kiểm tra</td><td>Restart container nếu quá thời gian</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <h3>4.2 Các cơ chế kiểm tra Probe</h3>
+          <div class="node-table-wrap">
+            <table class="node-table">
+              <thead><tr><th>Cơ chế</th><th>Mô tả</th><th>Dùng khi nào</th></tr></thead>
+              <tbody>
+                <tr><td><code>httpGet</code></td><td>HTTP GET đến endpoint — thành công nếu status 200-399</td><td>Web app có health check endpoint</td></tr>
+                <tr><td><code>tcpSocket</code></td><td>Kiểm tra TCP connection đến port — thành công nếu kết nối được</td><td>Database, message broker</td></tr>
+                <tr><td><code>exec</code></td><td>Chạy lệnh trong container — thành công nếu exit code 0</td><td>Custom check, kiểm tra file tồn tại</td></tr>
+                <tr><td><code>grpc</code></td><td>gRPC health check protocol</td><td>App dùng gRPC</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <h3>4.3 Manifest Probe đầy đủ</h3>
+          <p class="code-desc">Manifest Pod với đầy đủ 3 loại probe. Chú ý các tham số quan trọng: <code>initialDelaySeconds</code> (chờ bao lâu trước khi probe lần đầu), <code>periodSeconds</code> (probe cách bao lâu 1 lần), <code>failureThreshold</code> (fail bao nhiêu lần mới hành động):</p>
+          <div class="code-block">
+            <div class="code-header"><span class="code-lang">yaml – container-probes.yaml</span><button class="copy-btn" data-code="apiVersion: v1
+kind: Pod
+metadata:
+  name: hello-world-probe
+  labels:
+    app: hello-world
+spec:
+  containers:
+    - name: hello-world
+      image: gcr.io/google-samples/hello-app:1.0
+      ports:
+        - containerPort: 8080
+      startupProbe:
+        httpGet:
+          path: /
+          port: 8080
+        initialDelaySeconds: 5   # Chờ 5s sau khi container start
+        periodSeconds: 5          # Probe mỗi 5s
+        failureThreshold: 30      # Cho phép fail 30 lần (= 150s để khởi động)
+      livenessProbe:
+        httpGet:
+          path: /
+          port: 8080              # ⚠️ Phải khớp với containerPort!
+        initialDelaySeconds: 10
+        periodSeconds: 10
+        failureThreshold: 3       # Fail 3 lần → restart container
+        timeoutSeconds: 5
+      readinessProbe:
+        httpGet:
+          path: /
+          port: 8080
+        initialDelaySeconds: 10
+        periodSeconds: 10
+        failureThreshold: 3       # Fail 3 lần → xóa khỏi Service endpoints
+        successThreshold: 1">Sao chép</button></div>
+            <pre><code>apiVersion: v1
+kind: Pod
+metadata:
+  name: hello-world-probe
+  labels:
+    app: hello-world
+spec:
+  containers:
+    - name: hello-world
+      image: gcr.io/google-samples/hello-app:1.0
+      ports:
+        - containerPort: 8080
+      startupProbe:
+        httpGet:
+          path: /
+          port: 8080
+        initialDelaySeconds: 5   # Chờ 5s sau khi container start
+        periodSeconds: 5          # Probe mỗi 5s
+        failureThreshold: 30      # Cho phép fail 30 lần (= 150s để khởi động)
+      livenessProbe:
+        httpGet:
+          path: /
+          port: 8080              # ⚠️ Phải khớp với containerPort!
+        initialDelaySeconds: 10
+        periodSeconds: 10
+        failureThreshold: 3       # Fail 3 lần → restart container
+        timeoutSeconds: 5
+      readinessProbe:
+        httpGet:
+          path: /
+          port: 8080
+        initialDelaySeconds: 10
+        periodSeconds: 10
+        failureThreshold: 3       # Fail 3 lần → xóa khỏi Service endpoints
+        successThreshold: 1</code></pre>
+          </div>
+
+          <p class="code-desc">Tạo Pod và quan sát probe hoạt động. Lỗi thường gặp là cấu hình sai port — probe trỏ đến port không tồn tại. Dùng <code>kubectl describe</code> để đọc trạng thái probe và events:</p>
+          <div class="code-block">
+            <div class="code-header"><span class="code-lang">bash</span><button class="copy-btn" data-code="kubectl apply -f container-probes.yaml
+
+# Xem Pod đang khởi động
+kubectl get pods --selector app=hello-world --watch
+
+# Xem chi tiết probe configuration và trạng thái
+# Tìm: Containers > Liveness / Readiness / Startup section
+# Tìm: Conditions > Ready, ContainersReady
+# Tìm: Events > probe failure messages
+kubectl describe pod hello-world-probe
+
+# Nếu probe fail: Pod sẽ hiện RESTARTS tăng (liveness)
+# hoặc READY 0/1 (readiness)
+
+kubectl delete pod hello-world-probe">Sao chép</button></div>
+            <pre><code>kubectl apply -f container-probes.yaml
+
+# Xem Pod đang khởi động
+kubectl get pods --selector app=hello-world --watch
+
+# Xem chi tiết probe configuration và trạng thái
+# Tìm: Containers > Liveness / Readiness / Startup section
+# Tìm: Conditions > Ready, ContainersReady
+# Tìm: Events > probe failure messages
+kubectl describe pod hello-world-probe
+
+# Nếu probe fail: Pod sẽ hiện RESTARTS tăng (liveness)
+# hoặc READY 0/1 (readiness)
+
+kubectl delete pod hello-world-probe</code></pre>
+          </div>
+        </section>
+
+        <!-- PHẦN 5: REPLICASET -->
+        <section class="lesson-section">
+          <h2>Phần 5: ReplicaSet — Đảm bảo số lượng replica</h2>
+          <p>ReplicaSet đảm bảo một số lượng Pod replica cụ thể luôn chạy trong cluster. Nếu Pod crash hoặc bị xóa, ReplicaSet sẽ tự tạo Pod mới để bù đắp.</p>
+
+          <div class="code-block">
+            <div class="code-header"><span class="code-lang">text – Cơ chế hoạt động ReplicaSet</span><button class="copy-btn" data-code="ReplicaSet: hello-world-rs
+  replicas: 3   ← desired state
+
+  Trạng thái thực tế: 3 Pod đang chạy ✓
+  
+  → Pod A crash
+  
+  Trạng thái thực tế: 2 Pod đang chạy ✗
+  ReplicaSet Controller phát hiện: 2 ≠ 3
+  → Tạo Pod D mới
+  
+  Trạng thái thực tế: 3 Pod đang chạy ✓
+
+Label Selector — cơ chế ReplicaSet tìm Pod của mình:
+  ReplicaSet selector: app=hello-world
+  Pod labels: app=hello-world  → Pod thuộc về RS này">Sao chép</button></div>
+            <pre><code>ReplicaSet: hello-world-rs
+  replicas: 3   ← desired state
+
+  Trạng thái thực tế: 3 Pod đang chạy ✓
+  
+  → Pod A crash
+  
+  Trạng thái thực tế: 2 Pod đang chạy ✗
+  ReplicaSet Controller phát hiện: 2 ≠ 3
+  → Tạo Pod D mới
+  
+  Trạng thái thực tế: 3 Pod đang chạy ✓
+
+Label Selector — cơ chế ReplicaSet tìm Pod của mình:
+  ReplicaSet selector: app=hello-world
+  Pod labels: app=hello-world  → Pod thuộc về RS này</code></pre>
+          </div>
+
+          <div class="info-box">
+            <div class="info-box-title">⚠️ Tại sao không dùng ReplicaSet trực tiếp?</div>
+            <p style="margin:0;font-size:13.5px;color:#1e40af;line-height:1.7">ReplicaSet không hỗ trợ rolling update. Khi cần update image, phải xóa toàn bộ Pod cũ rồi tạo mới — gây downtime. <strong>Deployment</strong> bao gồm ReplicaSet và bổ sung rolling update, rollback. Trong thực tế, hầu như luôn dùng Deployment thay vì ReplicaSet trực tiếp.</p>
+          </div>
+        </section>
+
+        <!-- PHẦN 6: DEPLOYMENT -->
+        <section class="lesson-section">
+          <h2>Phần 6: Deployment — Workload phổ biến nhất</h2>
+          <p>Deployment là workload resource phổ biến nhất trong Kubernetes. Nó quản lý ReplicaSet, cung cấp rolling update, rollback và nhiều tính năng khác cho stateless application.</p>
+
+          <div class="code-block">
+            <div class="code-header"><span class="code-lang">text – Cấu trúc phân cấp Deployment</span><button class="copy-btn" data-code="Deployment: hello-world
+  └── ReplicaSet: hello-world-7d9b4c8f6  (version hiện tại)
+      ├── Pod: hello-world-7d9b4c8f6-abcde
+      ├── Pod: hello-world-7d9b4c8f6-fghij
+      └── Pod: hello-world-7d9b4c8f6-klmno
+  └── ReplicaSet: hello-world-5c6b3a2e1  (version cũ, scale=0 sau update)
+
+Khi update image:
+  Deployment tạo ReplicaSet MỚI → scale up từ từ
+  Đồng thời scale down ReplicaSet CŨ
+  → Zero downtime rolling update">Sao chép</button></div>
+            <pre><code>Deployment: hello-world
+  └── ReplicaSet: hello-world-7d9b4c8f6  (version hiện tại)
+      ├── Pod: hello-world-7d9b4c8f6-abcde
+      ├── Pod: hello-world-7d9b4c8f6-fghij
+      └── Pod: hello-world-7d9b4c8f6-klmno
+  └── ReplicaSet: hello-world-5c6b3a2e1  (version cũ, scale=0 sau update)
+
+Khi update image:
+  Deployment tạo ReplicaSet MỚI → scale up từ từ
+  Đồng thời scale down ReplicaSet CŨ
+  → Zero downtime rolling update</code></pre>
+          </div>
+
+          <h3>6.1 Tạo Deployment</h3>
+          <p class="code-desc">Manifest Deployment đầy đủ với cấu hình <code>strategy</code> rolling update. <code>maxSurge</code> là số Pod có thể tạo thêm tạm thời khi update. <code>maxUnavailable</code> là số Pod tối đa có thể không available trong quá trình update. <code>resources</code> giới hạn CPU/RAM của container:</p>
+          <div class="code-block">
+            <div class="code-header"><span class="code-lang">yaml – deployment.yaml</span><button class="copy-btn" data-code="apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hello-world
+  labels:
+    app: hello-world
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: hello-world          # ReplicaSet dùng label này để tìm Pod
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1               # Tối đa 1 Pod tạo thêm khi update
+      maxUnavailable: 0         # Không cho phép Pod nào unavailable
+  template:                     # Đây là Pod template
+    metadata:
+      labels:
+        app: hello-world        # Label phải khớp với selector ở trên
+    spec:
+      containers:
+        - name: hello-world
+          image: gcr.io/google-samples/hello-app:1.0
+          ports:
+            - containerPort: 8080
+          resources:
+            requests:
+              cpu: &quot;100m&quot;       # 0.1 CPU core (tối thiểu cần)
+              memory: &quot;128Mi&quot;   # 128 MB RAM (tối thiểu cần)
+            limits:
+              cpu: &quot;200m&quot;       # 0.2 CPU core (tối đa cho phép)
+              memory: &quot;256Mi&quot;   # 256 MB RAM (tối đa cho phép)">Sao chép</button></div>
+            <pre><code>apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hello-world
+  labels:
+    app: hello-world
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: hello-world          # ReplicaSet dùng label này để tìm Pod
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1               # Tối đa 1 Pod tạo thêm khi update
+      maxUnavailable: 0         # Không cho phép Pod nào unavailable
+  template:                     # Đây là Pod template
+    metadata:
+      labels:
+        app: hello-world        # Label phải khớp với selector ở trên
+    spec:
+      containers:
+        - name: hello-world
+          image: gcr.io/google-samples/hello-app:1.0
+          ports:
+            - containerPort: 8080
+          resources:
+            requests:
+              cpu: "100m"       # 0.1 CPU core (tối thiểu cần)
+              memory: "128Mi"   # 128 MB RAM (tối thiểu cần)
+            limits:
+              cpu: "200m"       # 0.2 CPU core (tối đa cho phép)
+              memory: "256Mi"   # 256 MB RAM (tối đa cho phép)</code></pre>
+          </div>
+
+          <p class="code-desc">Tạo Deployment và quan sát quá trình tạo ReplicaSet → Pod. Lệnh <code>rollout status</code> chờ cho đến khi Deployment hoàn tất:</p>
+          <div class="code-block">
+            <div class="code-header"><span class="code-lang">bash</span><button class="copy-btn" data-code="kubectl apply -f deployment.yaml
+
+# Theo dõi quá trình rollout
+kubectl rollout status deployment hello-world
+
+# Xem Deployment, ReplicaSet và Pod
+kubectl get deployment hello-world
+kubectl get replicaset
+kubectl get pods -l app=hello-world -o wide">Sao chép</button></div>
+            <pre><code>kubectl apply -f deployment.yaml
+
+# Theo dõi quá trình rollout
+kubectl rollout status deployment hello-world
+
+# Xem Deployment, ReplicaSet và Pod
+kubectl get deployment hello-world
+kubectl get replicaset
+kubectl get pods -l app=hello-world -o wide</code></pre>
+          </div>
+
+          <h3>6.2 Scale Deployment</h3>
+          <p class="code-desc">Scale deployment bằng lệnh <code>kubectl scale</code>. Quan sát trong events terminal — khi scale up sẽ thấy ReplicaSet tạo thêm Pod, khi scale down sẽ thấy Pod bị terminate:</p>
+          <div class="code-block">
+            <div class="code-header"><span class="code-lang">bash</span><button class="copy-btn" data-code="# Scale lên 5 replica
+kubectl scale deployment hello-world --replicas=5
+kubectl get pods -l app=hello-world
+
+# Scale xuống 2 replica
+kubectl scale deployment hello-world --replicas=2
+kubectl get pods -l app=hello-world
+
+# Xem lịch sử scale trong events
+kubectl describe deployment hello-world">Sao chép</button></div>
+            <pre><code># Scale lên 5 replica
+kubectl scale deployment hello-world --replicas=5
+kubectl get pods -l app=hello-world
+
+# Scale xuống 2 replica
+kubectl scale deployment hello-world --replicas=2
+kubectl get pods -l app=hello-world
+
+# Xem lịch sử scale trong events
+kubectl describe deployment hello-world</code></pre>
+          </div>
+
+          <h3>6.3 Rolling Update và Rollback</h3>
+          <p class="code-desc">Update image từ v1.0 lên v2.0. Kubernetes tạo ReplicaSet mới, scale up dần Pod mới trong khi scale down Pod cũ — đảm bảo zero downtime. <code>--record</code> lưu lệnh vào rollout history:</p>
+          <div class="code-block">
+            <div class="code-header"><span class="code-lang">bash</span><button class="copy-btn" data-code="# Cập nhật image lên version 2.0
+kubectl set image deployment hello-world hello-world=gcr.io/google-samples/hello-app:2.0
+
+# Theo dõi tiến trình rolling update
+kubectl rollout status deployment hello-world
+
+# Xem ReplicaSet — sẽ thấy RS cũ (replicas=0) và RS mới (replicas=3)
+kubectl get replicaset
+
+# Xem lịch sử rollout
+kubectl rollout history deployment hello-world
+
+# Rollback về version trước nếu có vấn đề
+kubectl rollout undo deployment hello-world
+
+# Xác nhận đã rollback thành công
+kubectl rollout status deployment hello-world
+kubectl describe deployment hello-world | grep Image">Sao chép</button></div>
+            <pre><code># Cập nhật image lên version 2.0
+kubectl set image deployment hello-world hello-world=gcr.io/google-samples/hello-app:2.0
+
+# Theo dõi tiến trình rolling update
+kubectl rollout status deployment hello-world
+
+# Xem ReplicaSet — sẽ thấy RS cũ (replicas=0) và RS mới (replicas=3)
+kubectl get replicaset
+
+# Xem lịch sử rollout
+kubectl rollout history deployment hello-world
+
+# Rollback về version trước nếu có vấn đề
+kubectl rollout undo deployment hello-world
+
+# Xác nhận đã rollback thành công
+kubectl rollout status deployment hello-world
+kubectl describe deployment hello-world | grep Image</code></pre>
+          </div>
+
+          <div class="info-box">
+            <div class="info-box-title">💡 Tại sao Deployment giữ lại ReplicaSet cũ?</div>
+            <p style="margin:0;font-size:13.5px;color:#1e40af;line-height:1.7">Deployment không xóa ReplicaSet cũ ngay sau khi update — nó chỉ scale về 0. Điều này cho phép <code>rollback</code> ngay lập tức mà không cần pull lại image. Số lượng RS cũ được giữ lại kiểm soát bởi <code>spec.revisionHistoryLimit</code> (mặc định là 10).</p>
+          </div>
+        </section>
+
+        <!-- PHẦN 7: DAEMONSET -->
+        <section class="lesson-section">
+          <h2>Phần 7: DaemonSet — Một Pod trên mỗi Node</h2>
+          <p>DaemonSet đảm bảo một bản sao của Pod chạy trên <strong>tất cả</strong> (hoặc một nhóm) node trong cluster. Khi node mới được thêm vào cluster, Pod tự động được tạo trên node đó. Khi node bị xóa, Pod tự động bị dọn dẹp.</p>
+
+          <div class="node-table-wrap">
+            <table class="node-table">
+              <thead><tr><th>Use case</th><th>Ví dụ</th></tr></thead>
+              <tbody>
+                <tr><td>Log collection agent</td><td>Fluentd, Logstash, Filebeat — thu thập log từ mỗi node</td></tr>
+                <tr><td>Metrics/monitoring agent</td><td>Prometheus node-exporter — đọc metrics của OS từng node</td></tr>
+                <tr><td>Network plugin</td><td>Calico-node, Cilium — CNI plugin chạy trên mỗi node</td></tr>
+                <tr><td>Storage plugin</td><td>Ceph, GlusterFS node daemon</td></tr>
+                <tr><td>Security agent</td><td>Falco, Sysdig — giám sát syscall trên từng node</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="code-desc">Manifest DaemonSet chạy Fluentd log agent trên mỗi node. <code>tolerations</code> cho phép Pod chạy trên cả master node (vốn có taint <code>node-role.kubernetes.io/control-plane</code>). <code>hostPath</code> volume mount thư mục log của OS vào container:</p>
+          <div class="code-block">
+            <div class="code-header"><span class="code-lang">yaml – daemonset-fluentd.yaml</span><button class="copy-btn" data-code="apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: fluentd
+  namespace: kube-system
+  labels:
+    app: fluentd
+spec:
+  selector:
+    matchLabels:
+      app: fluentd
+  template:
+    metadata:
+      labels:
+        app: fluentd
+    spec:
+      tolerations:
+        - key: node-role.kubernetes.io/control-plane
+          operator: Exists
+          effect: NoSchedule        # Cho phép chạy trên master node
+      containers:
+        - name: fluentd
+          image: fluent/fluentd:v1.16
+          resources:
+            limits:
+              memory: 200Mi
+            requests:
+              cpu: 100m
+              memory: 200Mi
+          volumeMounts:
+            - name: varlog
+              mountPath: /var/log   # Mount log directory từ node
+      volumes:
+        - name: varlog
+          hostPath:
+            path: /var/log          # Thư mục log thực tế trên node OS">Sao chép</button></div>
+            <pre><code>apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: fluentd
+  namespace: kube-system
+  labels:
+    app: fluentd
+spec:
+  selector:
+    matchLabels:
+      app: fluentd
+  template:
+    metadata:
+      labels:
+        app: fluentd
+    spec:
+      tolerations:
+        - key: node-role.kubernetes.io/control-plane
+          operator: Exists
+          effect: NoSchedule        # Cho phép chạy trên master node
+      containers:
+        - name: fluentd
+          image: fluent/fluentd:v1.16
+          resources:
+            limits:
+              memory: 200Mi
+            requests:
+              cpu: 100m
+              memory: 200Mi
+          volumeMounts:
+            - name: varlog
+              mountPath: /var/log   # Mount log directory từ node
+      volumes:
+        - name: varlog
+          hostPath:
+            path: /var/log          # Thư mục log thực tế trên node OS</code></pre>
+          </div>
+
+          <p class="code-desc">Tạo DaemonSet và quan sát — số lượng Pod bằng số node trong cluster. Nếu cluster có 3 node thì sẽ có 3 Pod, mỗi Pod chạy trên 1 node:</p>
+          <div class="code-block">
+            <div class="code-header"><span class="code-lang">bash</span><button class="copy-btn" data-code="kubectl apply -f daemonset-fluentd.yaml
+
+# Số Pod = số node trong cluster (kể cả master nếu có toleration)
+kubectl get pods -n kube-system -l app=fluentd -o wide
+
+# Mô tả DaemonSet: thấy số Desired, Current, Ready
+kubectl describe daemonset fluentd -n kube-system
+
+# Dọn dẹp
+kubectl delete daemonset fluentd -n kube-system">Sao chép</button></div>
+            <pre><code>kubectl apply -f daemonset-fluentd.yaml
+
+# Số Pod = số node trong cluster (kể cả master nếu có toleration)
+kubectl get pods -n kube-system -l app=fluentd -o wide
+
+# Mô tả DaemonSet: thấy số Desired, Current, Ready
+kubectl describe daemonset fluentd -n kube-system
+
+# Dọn dẹp
+kubectl delete daemonset fluentd -n kube-system</code></pre>
+          </div>
+        </section>
+
+        <!-- PHẦN 8: STATEFULSET -->
+        <section class="lesson-section">
+          <h2>Phần 8: StatefulSet — Workload Stateful</h2>
+          <p>StatefulSet dành cho các ứng dụng cần <strong>stable identity</strong> — tên Pod, hostname, và persistent storage không thay đổi khi Pod được recreate. Điều này cần thiết cho database, message queue, và các ứng dụng distributed cần nhận biết nhau.</p>
+
+          <h3>8.1 Deployment vs StatefulSet</h3>
+          <div class="node-table-wrap">
+            <table class="node-table">
+              <thead><tr><th>Đặc điểm</th><th>Deployment</th><th>StatefulSet</th></tr></thead>
+              <tbody>
+                <tr><td>Tên Pod</td><td>Random suffix: <code>app-7d9b4c-xk2lp</code></td><td>Thứ tự: <code>mysql-0</code>, <code>mysql-1</code>, <code>mysql-2</code></td></tr>
+                <tr><td>Khởi động</td><td>Tất cả Pod start song song</td><td>Tuần tự: mysql-0 → mysql-1 → mysql-2</td></tr>
+                <tr><td>Xóa</td><td>Ngẫu nhiên</td><td>Ngược thứ tự: mysql-2 → mysql-1 → mysql-0</td></tr>
+                <tr><td>Storage</td><td>Dùng chung hoặc không cần</td><td>Mỗi Pod có PVC riêng, tồn tại qua restart</td></tr>
+                <tr><td>Network</td><td>ClusterIP Service</td><td>Headless Service — DNS riêng cho từng Pod</td></tr>
+                <tr><td>Dùng khi nào</td><td>Stateless: web, API</td><td>Stateful: MySQL, PostgreSQL, Kafka</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <h3>8.2 DNS Headless Service trong StatefulSet</h3>
+          <div class="code-block">
+            <div class="code-header"><span class="code-lang">text – DNS pattern của StatefulSet Pod</span><button class="copy-btn" data-code="StatefulSet tên: mysql
+Headless Service tên: mysql-svc
+Namespace: default
+
+Mỗi Pod có DNS riêng và ổn định:
+  mysql-0.mysql-svc.default.svc.cluster.local
+  mysql-1.mysql-svc.default.svc.cluster.local
+  mysql-2.mysql-svc.default.svc.cluster.local
+
+→ mysql-1 có thể luôn liên lạc với mysql-0 qua DNS
+→ Kể cả khi mysql-0 bị restart, DNS vẫn trỏ đúng Pod mới">Sao chép</button></div>
+            <pre><code>StatefulSet tên: mysql
+Headless Service tên: mysql-svc
+Namespace: default
+
+Mỗi Pod có DNS riêng và ổn định:
+  mysql-0.mysql-svc.default.svc.cluster.local
+  mysql-1.mysql-svc.default.svc.cluster.local
+  mysql-2.mysql-svc.default.svc.cluster.local
+
+→ mysql-1 có thể luôn liên lạc với mysql-0 qua DNS
+→ Kể cả khi mysql-0 bị restart, DNS vẫn trỏ đúng Pod mới</code></pre>
+          </div>
+
+          <h3>8.3 Manifest StatefulSet</h3>
+          <p class="code-desc">Manifest StatefulSet MySQL với Headless Service. <code>clusterIP: None</code> tạo Headless Service — không có ClusterIP, CoreDNS trả về IP của Pod trực tiếp. <code>volumeClaimTemplates</code> tự động tạo PVC riêng cho từng Pod:</p>
+          <div class="code-block">
+            <div class="code-header"><span class="code-lang">yaml – statefulset-mysql.yaml</span><button class="copy-btn" data-code="# Headless Service — bắt buộc phải có trước StatefulSet
+apiVersion: v1
+kind: Service
+metadata:
+  name: mysql-svc
+spec:
+  clusterIP: None           # Headless: không có VIP, DNS trả về Pod IP
+  selector:
+    app: mysql
+  ports:
+    - port: 3306
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: mysql
+spec:
+  serviceName: mysql-svc    # Tên Headless Service ở trên
+  replicas: 3
+  selector:
+    matchLabels:
+      app: mysql
+  template:
+    metadata:
+      labels:
+        app: mysql
+    spec:
+      containers:
+        - name: mysql
+          image: mysql:8.0
+          ports:
+            - containerPort: 3306
+          env:
+            - name: MYSQL_ROOT_PASSWORD
+              value: &quot;password123&quot;
+          volumeMounts:
+            - name: mysql-data
+              mountPath: /var/lib/mysql  # Mỗi Pod mount PVC riêng của mình
+  volumeClaimTemplates:          # Template tự tạo PVC cho từng Pod
+    - metadata:
+        name: mysql-data
+      spec:
+        accessModes: [&quot;ReadWriteOnce&quot;]
+        resources:
+          requests:
+            storage: 1Gi">Sao chép</button></div>
+            <pre><code># Headless Service — bắt buộc phải có trước StatefulSet
+apiVersion: v1
+kind: Service
+metadata:
+  name: mysql-svc
+spec:
+  clusterIP: None           # Headless: không có VIP, DNS trả về Pod IP
+  selector:
+    app: mysql
+  ports:
+    - port: 3306
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: mysql
+spec:
+  serviceName: mysql-svc    # Tên Headless Service ở trên
+  replicas: 3
+  selector:
+    matchLabels:
+      app: mysql
+  template:
+    metadata:
+      labels:
+        app: mysql
+    spec:
+      containers:
+        - name: mysql
+          image: mysql:8.0
+          ports:
+            - containerPort: 3306
+          env:
+            - name: MYSQL_ROOT_PASSWORD
+              value: "password123"
+          volumeMounts:
+            - name: mysql-data
+              mountPath: /var/lib/mysql  # Mỗi Pod mount PVC riêng của mình
+  volumeClaimTemplates:          # Template tự tạo PVC cho từng Pod
+    - metadata:
+        name: mysql-data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 1Gi</code></pre>
+          </div>
+
+          <p class="code-desc">Tạo StatefulSet và quan sát thứ tự tạo Pod tuần tự — mysql-0 phải Running trước khi mysql-1 được tạo. Mỗi Pod có PVC riêng tự động được tạo:</p>
+          <div class="code-block">
+            <div class="code-header"><span class="code-lang">bash</span><button class="copy-btn" data-code="kubectl apply -f statefulset-mysql.yaml
+
+# Quan sát Pod tạo tuần tự: mysql-0 → mysql-1 → mysql-2
+kubectl get pods -l app=mysql --watch
+
+# Xem PVC được tạo tự động cho từng Pod
+kubectl get pvc
+
+# Pod có tên ổn định và thứ tự
+kubectl get pods -l app=mysql -o wide">Sao chép</button></div>
+            <pre><code>kubectl apply -f statefulset-mysql.yaml
+
+# Quan sát Pod tạo tuần tự: mysql-0 → mysql-1 → mysql-2
+kubectl get pods -l app=mysql --watch
+
+# Xem PVC được tạo tự động cho từng Pod
+kubectl get pvc
+
+# Pod có tên ổn định và thứ tự
+kubectl get pods -l app=mysql -o wide</code></pre>
+          </div>
+        </section>
+
+        <!-- PHẦN 9: JOB -->
+        <section class="lesson-section">
+          <h2>Phần 9: Job — Tác vụ chạy một lần</h2>
+          <p>Job tạo một hoặc nhiều Pod để thực hiện tác vụ đến khi hoàn thành thành công. Khác với Deployment — khi container kết thúc thành công, Job coi là hoàn tất và không restart thêm.</p>
+
+          <h3>9.1 Các mode chạy Job</h3>
+          <div class="node-table-wrap">
+            <table class="node-table">
+              <thead><tr><th>Mode</th><th>completions</th><th>parallelism</th><th>Hành vi</th></tr></thead>
+              <tbody>
+                <tr><td>Single Job</td><td>1 (mặc định)</td><td>1 (mặc định)</td><td>Chạy 1 Pod duy nhất đến khi xong</td></tr>
+                <tr><td>Parallel fixed</td><td>N</td><td>P</td><td>Chạy tổng N Pod, tối đa P Pod cùng lúc</td></tr>
+                <tr><td>Work queue</td><td>không đặt</td><td>P</td><td>Pod tự lấy việc từ queue, dừng khi queue rỗng</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="code-desc">Manifest Job tính Pi đến 2000 chữ số. <code>backoffLimit</code> là số lần retry tối đa nếu Job fail. <code>activeDeadlineSeconds</code> timeout toàn bộ Job — tránh Job chạy vô hạn:</p>
+          <div class="code-block">
+            <div class="code-header"><span class="code-lang">yaml – job-pi.yaml</span><button class="copy-btn" data-code="apiVersion: batch/v1
+kind: Job
+metadata:
+  name: pi-calculator
+spec:
+  completions: 1            # Cần 1 lần chạy thành công
+  parallelism: 1            # Chạy 1 Pod tại một thời điểm
+  backoffLimit: 4           # Retry tối đa 4 lần nếu fail
+  activeDeadlineSeconds: 120 # Timeout 2 phút — Job bị hủy nếu quá
+  template:
+    spec:
+      restartPolicy: OnFailure  # Job phải dùng OnFailure hoặc Never
+      containers:
+        - name: pi
+          image: perl:5.34
+          command: [&quot;perl&quot;, &quot;-Mbignum=bpi&quot;, &quot;-wle&quot;, &quot;print bpi(2000)&quot;]">Sao chép</button></div>
+            <pre><code>apiVersion: batch/v1
+kind: Job
+metadata:
+  name: pi-calculator
+spec:
+  completions: 1            # Cần 1 lần chạy thành công
+  parallelism: 1            # Chạy 1 Pod tại một thời điểm
+  backoffLimit: 4           # Retry tối đa 4 lần nếu fail
+  activeDeadlineSeconds: 120 # Timeout 2 phút — Job bị hủy nếu quá
+  template:
+    spec:
+      restartPolicy: OnFailure  # Job phải dùng OnFailure hoặc Never
+      containers:
+        - name: pi
+          image: perl:5.34
+          command: ["perl", "-Mbignum=bpi", "-wle", "print bpi(2000)"]</code></pre>
+          </div>
+
+          <p class="code-desc">Chạy Job và xem log kết quả. Sau khi Job <code>Complete</code>, Pod vẫn còn để đọc log — không bị xóa ngay:</p>
+          <div class="code-block">
+            <div class="code-header"><span class="code-lang">bash</span><button class="copy-btn" data-code="kubectl apply -f job-pi.yaml
+
+# Theo dõi Job cho đến khi Complete
+kubectl get jobs --watch
+
+# Xem Pod do Job tạo ra
+kubectl get pods -l job-name=pi-calculator
+
+# Xem kết quả tính toán trong log
+kubectl logs -l job-name=pi-calculator
+
+# Xem chi tiết Job: Completions, Duration
+kubectl describe job pi-calculator
+
+# Dọn dẹp
+kubectl delete job pi-calculator">Sao chép</button></div>
+            <pre><code>kubectl apply -f job-pi.yaml
+
+# Theo dõi Job cho đến khi Complete
+kubectl get jobs --watch
+
+# Xem Pod do Job tạo ra
+kubectl get pods -l job-name=pi-calculator
+
+# Xem kết quả tính toán trong log
+kubectl logs -l job-name=pi-calculator
+
+# Xem chi tiết Job: Completions, Duration
+kubectl describe job pi-calculator
+
+# Dọn dẹp
+kubectl delete job pi-calculator</code></pre>
+          </div>
+        </section>
+
+        <!-- PHẦN 10: CRONJOB -->
+        <section class="lesson-section">
+          <h2>Phần 10: CronJob — Tác vụ định kỳ</h2>
+          <p>CronJob tạo Job theo lịch định kỳ dùng cú pháp cron của Linux. CronJob sẽ tự động tạo Job mới theo lịch đã định, và mỗi Job tạo Pod để thực hiện công việc.</p>
+
+          <h3>10.1 Cú pháp Cron Schedule</h3>
+          <div class="code-block">
+            <div class="code-header"><span class="code-lang">text – Cú pháp cron trong Kubernetes</span><button class="copy-btn" data-code='Cú pháp: "Phút  Giờ  Ngày  Tháng  Thứ"
+
+┌───── Phút (0-59)
+│ ┌───── Giờ (0-23)
+│ │ ┌───── Ngày trong tháng (1-31)
+│ │ │ ┌───── Tháng (1-12)
+│ │ │ │ ┌───── Thứ trong tuần (0-6, 0=Chủ nhật)
+│ │ │ │ │
+* * * * *
+
+Ví dụ:
+"*/5 * * * *"      → Mỗi 5 phút
+"0 * * * *"        → Mỗi giờ (vào đầu giờ)
+"0 2 * * *"        → Hàng ngày lúc 2:00 AM
+"0 2 * * 0"        → Hàng tuần vào CN lúc 2:00 AM
+"0 2 1 * *"        → Ngày 1 hàng tháng lúc 2:00 AM
+"0 9-18 * * 1-5"   → Mỗi giờ từ 9AM-6PM, thứ 2 đến thứ 6'>Sao chép</button></div>
+            <pre><code>Cú pháp: "Phút  Giờ  Ngày  Tháng  Thứ"
+
+┌───── Phút (0-59)
+│ ┌───── Giờ (0-23)
+│ │ ┌───── Ngày trong tháng (1-31)
+│ │ │ ┌───── Tháng (1-12)
+│ │ │ │ ┌───── Thứ trong tuần (0-6, 0=Chủ nhật)
+│ │ │ │ │
+* * * * *
+
+Ví dụ:
+"*/5 * * * *"      → Mỗi 5 phút
+"0 * * * *"        → Mỗi giờ (vào đầu giờ)
+"0 2 * * *"        → Hàng ngày lúc 2:00 AM
+"0 2 * * 0"        → Hàng tuần vào CN lúc 2:00 AM
+"0 2 1 * *"        → Ngày 1 hàng tháng lúc 2:00 AM
+"0 9-18 * * 1-5"   → Mỗi giờ từ 9AM-6PM, thứ 2 đến thứ 6</code></pre>
+          </div>
+
+          <h3>10.2 Manifest CronJob</h3>
+          <p class="code-desc">Manifest CronJob chạy backup mỗi ngày lúc 2AM. <code>successfulJobsHistoryLimit</code> và <code>failedJobsHistoryLimit</code> kiểm soát bao nhiêu Job cũ được giữ lại để debug. <code>concurrencyPolicy</code> quyết định xử lý thế nào khi lịch chạy trùng nhau:</p>
+          <div class="code-block">
+            <div class="code-header"><span class="code-lang">yaml – cronjob-backup.yaml</span><button class="copy-btn" data-code='apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: daily-backup
+spec:
+  schedule: "0 2 * * *"          # Mỗi ngày lúc 2:00 AM
+  concurrencyPolicy: Forbid       # Không cho phép chạy song song nếu trùng lịch
+  successfulJobsHistoryLimit: 3   # Giữ lại 3 Job thành công gần nhất
+  failedJobsHistoryLimit: 1       # Giữ lại 1 Job thất bại gần nhất
+  startingDeadlineSeconds: 300    # Nếu trễ quá 5 phút thì bỏ qua lần này
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          restartPolicy: OnFailure
+          containers:
+            - name: backup
+              image: alpine
+              command:
+                - /bin/sh
+                - -c
+                - |
+                  echo "Starting backup at $(date)"
+                  echo "Backing up database..."
+                  sleep 30
+                  echo "Backup completed successfully at $(date)"'>Sao chép</button></div>
+            <pre><code>apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: daily-backup
+spec:
+  schedule: "0 2 * * *"          # Mỗi ngày lúc 2:00 AM
+  concurrencyPolicy: Forbid       # Không cho phép chạy song song nếu trùng lịch
+  successfulJobsHistoryLimit: 3   # Giữ lại 3 Job thành công gần nhất
+  failedJobsHistoryLimit: 1       # Giữ lại 1 Job thất bại gần nhất
+  startingDeadlineSeconds: 300    # Nếu trễ quá 5 phút thì bỏ qua lần này
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          restartPolicy: OnFailure
+          containers:
+            - name: backup
+              image: alpine
+              command:
+                - /bin/sh
+                - -c
+                - |
+                  echo "Starting backup at $(date)"
+                  echo "Backing up database..."
+                  sleep 30
+                  echo "Backup completed successfully at $(date)"</code></pre>
+          </div>
+
+          <p class="code-desc">Tạo CronJob và test ngay bằng cách trigger thủ công — không cần chờ đến 2AM. <code>kubectl create job --from</code> tạo Job ngay từ template của CronJob:</p>
+          <div class="code-block">
+            <div class="code-header"><span class="code-lang">bash</span><button class="copy-btn" data-code="kubectl apply -f cronjob-backup.yaml
+
+# Xem CronJob — cột SCHEDULE và LAST SCHEDULE
+kubectl get cronjob daily-backup
+
+# Trigger thủ công để test ngay (không cần chờ đến 2AM)
+kubectl create job backup-manual-test --from=cronjob/daily-backup
+
+# Xem Job và Pod được tạo
+kubectl get jobs
+kubectl get pods -l job-name=backup-manual-test
+
+# Xem log của Job
+kubectl logs -l job-name=backup-manual-test
+
+# Dọn dẹp
+kubectl delete cronjob daily-backup
+kubectl delete job backup-manual-test">Sao chép</button></div>
+            <pre><code>kubectl apply -f cronjob-backup.yaml
+
+# Xem CronJob — cột SCHEDULE và LAST SCHEDULE
+kubectl get cronjob daily-backup
+
+# Trigger thủ công để test ngay (không cần chờ đến 2AM)
+kubectl create job backup-manual-test --from=cronjob/daily-backup
+
+# Xem Job và Pod được tạo
+kubectl get jobs
+kubectl get pods -l job-name=backup-manual-test
+
+# Xem log của Job
+kubectl logs -l job-name=backup-manual-test
+
+# Dọn dẹp
+kubectl delete cronjob daily-backup
+kubectl delete job backup-manual-test</code></pre>
+          </div>
+        </section>
+
+        <!-- QUIZ -->
+        <section class="lesson-section">
+          <h2>🧪 Câu hỏi kiểm tra cuối buổi</h2>
+          <div class="quiz-container">
+            <div class="quiz-item">
+              <p class="quiz-q">1. Bạn cần chạy Prometheus node-exporter để thu thập metrics từ mỗi node trong cluster. Workload nào phù hợp nhất?</p>
+              <div class="quiz-options">
+                <button class="quiz-opt" data-correct="false">A. Deployment với replicas=3</button>
+                <button class="quiz-opt" data-correct="true">B. DaemonSet</button>
+                <button class="quiz-opt" data-correct="false">C. StatefulSet</button>
+                <button class="quiz-opt" data-correct="false">D. Job</button>
+              </div>
+              <div class="quiz-explain hidden">✅ <strong>Đáp án B:</strong> DaemonSet đảm bảo đúng 1 Pod trên mỗi node. Khi thêm node mới, Pod tự động được tạo. Deployment không đảm bảo mỗi node đều có Pod vì scheduler có thể đặt nhiều Pod trên cùng 1 node.</div>
+            </div>
+            <div class="quiz-item">
+              <p class="quiz-q">2. Sự khác biệt chính giữa livenessProbe và readinessProbe là gì?</p>
+              <div class="quiz-options">
+                <button class="quiz-opt" data-correct="false">A. livenessProbe dùng httpGet, readinessProbe dùng exec</button>
+                <button class="quiz-opt" data-correct="false">B. Cả hai đều restart container khi fail</button>
+                <button class="quiz-opt" data-correct="true">C. livenessProbe fail → restart container; readinessProbe fail → xóa khỏi Service endpoint</button>
+                <button class="quiz-opt" data-correct="false">D. readinessProbe chỉ chạy một lần khi khởi động</button>
+              </div>
+              <div class="quiz-explain hidden">✅ <strong>Đáp án C:</strong> livenessProbe xác định container có còn sống không — fail thì restart. readinessProbe xác định container có sẵn sàng nhận traffic không — fail thì xóa Pod ra khỏi Service endpoints nhưng không restart container.</div>
+            </div>
+            <div class="quiz-item">
+              <p class="quiz-q">3. Tại sao Deployment giữ lại ReplicaSet cũ (với replicas=0) sau khi rolling update?</p>
+              <div class="quiz-options">
+                <button class="quiz-opt" data-correct="false">A. Vì Kubernetes có lỗi, không xóa được</button>
+                <button class="quiz-opt" data-correct="true">B. Để hỗ trợ rollback nhanh mà không cần pull lại image</button>
+                <button class="quiz-opt" data-correct="false">C. Để ReplicaSet cũ tiếp tục phục vụ traffic</button>
+                <button class="quiz-opt" data-correct="false">D. Vì etcd cần lưu trạng thái</button>
+              </div>
+              <div class="quiz-explain hidden">✅ <strong>Đáp án B:</strong> ReplicaSet cũ vẫn tồn tại (scale=0) cho phép <code>kubectl rollout undo</code> hoạt động ngay lập tức — chỉ cần scale up RS cũ và scale down RS mới, không cần pull image lại.</div>
+            </div>
+            <div class="quiz-item">
+              <p class="quiz-q">4. Bạn cần chạy MySQL với 3 replica, mỗi instance cần volume riêng và có tên ổn định để các instance nhận ra nhau. Workload nào phù hợp?</p>
+              <div class="quiz-options">
+                <button class="quiz-opt" data-correct="false">A. Deployment với 3 replicas</button>
+                <button class="quiz-opt" data-correct="false">B. ReplicaSet</button>
+                <button class="quiz-opt" data-correct="true">C. StatefulSet</button>
+                <button class="quiz-opt" data-correct="false">D. DaemonSet</button>
+              </div>
+              <div class="quiz-explain hidden">✅ <strong>Đáp án C:</strong> StatefulSet cung cấp: tên Pod ổn định (mysql-0, mysql-1, mysql-2), PVC riêng cho từng Pod qua volumeClaimTemplates, DNS riêng qua Headless Service, và thứ tự khởi động đảm bảo primary khởi động trước replica.</div>
+            </div>
+            <div class="quiz-item">
+              <p class="quiz-q">5. RestartPolicy nào phù hợp cho một Job batch processing cần chạy lại khi gặp lỗi nhưng không chạy lại khi thành công?</p>
+              <div class="quiz-options">
+                <button class="quiz-opt" data-correct="false">A. Always</button>
+                <button class="quiz-opt" data-correct="true">B. OnFailure</button>
+                <button class="quiz-opt" data-correct="false">C. Never</button>
+                <button class="quiz-opt" data-correct="false">D. OnSuccess</button>
+              </div>
+              <div class="quiz-explain hidden">✅ <strong>Đáp án B:</strong> OnFailure chỉ restart khi container exit với code ≠ 0. Khi thành công (exit 0), container không restart và Job được đánh dấu Complete. <code>Always</code> sẽ restart kể cả khi thành công — không phù hợp cho Job.</div>
+            </div>
+            <div class="quiz-item">
+              <p class="quiz-q">6. Trong CronJob, <code>concurrencyPolicy: Forbid</code> có nghĩa là gì?</p>
+              <div class="quiz-options">
+                <button class="quiz-opt" data-correct="false">A. CronJob bị vô hiệu hóa và không chạy</button>
+                <button class="quiz-opt" data-correct="false">B. Job mới được tạo song song với Job cũ đang chạy</button>
+                <button class="quiz-opt" data-correct="true">C. Nếu Job cũ vẫn còn chạy, lịch mới bị bỏ qua</button>
+                <button class="quiz-opt" data-correct="false">D. Job cũ bị hủy để nhường chỗ cho Job mới</button>
+              </div>
+              <div class="quiz-explain hidden">✅ <strong>Đáp án C:</strong> Forbid ngăn chạy đồng thời — nếu đến lịch mà Job cũ chưa xong thì lịch mới bị skip. <code>Allow</code> (mặc định) cho phép chạy song song. <code>Replace</code> hủy Job cũ để chạy Job mới.</div>
+            </div>
+            <div class="quiz-item">
+              <p class="quiz-q">7. Init Container khác Sidecar Container ở điểm nào?</p>
+              <div class="quiz-options">
+                <button class="quiz-opt" data-correct="false">A. Init Container dùng image khác với container chính</button>
+                <button class="quiz-opt" data-correct="true">B. Init Container chạy trước container chính, hoàn thành rồi dừng; Sidecar chạy song song liên tục</button>
+                <button class="quiz-opt" data-correct="false">C. Init Container không thể mount volume</button>
+                <button class="quiz-opt" data-correct="false">D. Sidecar Container bắt buộc phải có trong mọi Pod</button>
+              </div>
+              <div class="quiz-explain hidden">✅ <strong>Đáp án B:</strong> Init Container chạy tuần tự trước container chính, phải hoàn thành thành công rồi mới kết thúc (exit 0). Dùng cho setup, chờ dependency. Sidecar Container chạy song song với container chính suốt vòng đời Pod, dùng cho logging, proxy.</div>
+            </div>
+            <div class="quiz-item">
+              <p class="quiz-q">8. Lệnh nào dùng để trigger thủ công 1 lần chạy của CronJob mà không cần chờ đến đúng lịch?</p>
+              <div class="quiz-options">
+                <button class="quiz-opt" data-correct="false">A. kubectl run cronjob/daily-backup</button>
+                <button class="quiz-opt" data-correct="false">B. kubectl scale cronjob daily-backup --replicas=1</button>
+                <button class="quiz-opt" data-correct="true">C. kubectl create job manual-run --from=cronjob/daily-backup</button>
+                <button class="quiz-opt" data-correct="false">D. kubectl apply -f cronjob-backup.yaml --force</button>
+              </div>
+              <div class="quiz-explain hidden">✅ <strong>Đáp án C:</strong> <code>kubectl create job &lt;name&gt; --from=cronjob/&lt;cronjob-name&gt;</code> tạo ngay 1 Job từ jobTemplate của CronJob chỉ định, không cần chờ đến lịch. Rất hữu ích để test CronJob.</div>
+            </div>
           </div>
         </section>
       </article>
